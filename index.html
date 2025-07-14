@@ -7,9 +7,15 @@
 </head>
 <body>
   <h1>Fixation Game Prototype</h1>
-  <canvas id="gameCanvas"></canvas>
-  <div id="uiContainer"></div>
+  <div id="nameScreen">
+    <h2>Who's Playing?</h2>
+    <label>Black: <input type="text" id="blackName" /></label><br>
+    <label>White: <input type="text" id="whiteName" /></label><br>
+    <button id="startGameBtn">Start Game</button>
+  </div>
+
+  <canvas id="gameCanvas" width="800" height="600" style="display:none;"></canvas>
+  <div id="uiContainer" style="display:none;"></div>
   <script src="script.js" defer></script>
-  <canvas id="gameCanvas" width="800" height="600"></canvas>
 </body>
 </html>

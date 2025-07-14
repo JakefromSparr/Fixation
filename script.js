@@ -1,6 +1,42 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const uiContainer = document.getElementById('uiContainer');
+const nameScreen = document.getElementById('nameScreen');
+const startGameBtn = document.getElementById('startGameBtn');
+
+startGameBtn.addEventListener("click", () => {
+  const black = document.getElementById("blackName").value.trim();
+  const white = document.getElementById("whiteName").value.trim();
+
+  if (!black || !white) {
+    alert("Please enter both names.");
+    return;
+  }
+
+  const pairName = (black.slice(0, 2) + white.slice(0, 2)).toLowerCase();
+  playerPair = pairName;
+
+  const savedData = localStorage.getItem(pairName);
+  if (savedData) {
+    playerProfile = JSON.parse(savedData);
+    console.log("Loaded saved profile:", playerProfile);
+  } else {
+    playerProfile = {
+      names: { black, white },
+      discoveredFormulas: [],
+      unlockedElements: [],
+      uses: {}
+    };
+    localStorage.setItem(pairName, JSON.stringify(playerProfile));
+    console.log("Created new profile:", playerProfile);
+  }
+
+  nameScreen.style.display = "none";
+  canvas.style.display = "block";
+  uiContainer.style.display = "block";
+  resizeCanvas();
+  startGame();
+});
 function resizeCanvas() {
   const rect = canvas.getBoundingClientRect();
   canvas.width = rect.width;
@@ -29,6 +65,9 @@ let roundNumber = 1;
 let isFirstMove = true;
 let lastPlayerToPlace = null;
 let lastFormulaClaimedName = null; // Track the last claimed formula name
+
+let playerPair = null;
+let playerProfile = null;
 
 const tileImages = {
   "black1": "https://res.cloudinary.com/dyoqz4zeb/image/upload/v1734648919/Fixation.Black1.1_adrb7w.png",
@@ -71,7 +110,7 @@ function updateBoardOffsets() {
 }
 
 // Initialize board offsets after the helper is defined
-resizeCanvas(); // Run once after offsets are defined
+// (canvas will be resized once players start the game)
 
 const neighborDirs = [
   {q: 1, r: 0},
