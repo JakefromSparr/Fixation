@@ -11,7 +11,12 @@
     <h2>Who's Playing?</h2>
     <label>Black: <input type="text" id="blackName" /></label><br>
     <label>White: <input type="text" id="whiteName" /></label><br>
-    <button id="startGameBtn">Start Game</button>
+    <button id="generatePairBtn">Generate Pair Name</button>
+    <div id="pairNameSection" style="display:none;">
+      <span id="pairNameDisplay"></span>
+      <button id="shufflePairBtn" type="button">Shuffle</button>
+    </div>
+    <button id="startGameBtn" disabled>Start Game</button>
   </div>
 
   <canvas id="gameCanvas" width="800" height="600" style="display:none;"></canvas>

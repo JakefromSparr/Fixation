@@ -3,6 +3,37 @@ const ctx = canvas.getContext('2d');
 const uiContainer = document.getElementById('uiContainer');
 const nameScreen = document.getElementById('nameScreen');
 const startGameBtn = document.getElementById('startGameBtn');
+const generatePairBtn = document.getElementById('generatePairBtn');
+const shufflePairBtn = document.getElementById('shufflePairBtn');
+const pairNameDisplay = document.getElementById('pairNameDisplay');
+const pairNameSection = document.getElementById('pairNameSection');
+
+generatePairBtn.addEventListener("click", () => {
+  const black = document.getElementById("blackName").value.trim();
+  const white = document.getElementById("whiteName").value.trim();
+
+  if (!black || !white) {
+    alert("Please enter both names.");
+    return;
+  }
+
+  const shuffles = [
+    black.slice(0, 2) + white.slice(0, 2),
+    black.slice(0, 1) + white.slice(0, 3),
+    white.slice(0, 2) + black.slice(0, 2),
+    black.slice(0, 3) + white.slice(0, 1),
+  ];
+
+  playerPair = shuffles[currentShuffle % shuffles.length].toLowerCase();
+  pairNameDisplay.textContent = playerPair;
+  pairNameSection.style.display = "block";
+  startGameBtn.disabled = false;
+});
+
+shufflePairBtn.addEventListener("click", () => {
+  currentShuffle++;
+  generatePairBtn.click();
+});
 
 startGameBtn.addEventListener("click", () => {
   const black = document.getElementById("blackName").value.trim();
@@ -13,10 +44,12 @@ startGameBtn.addEventListener("click", () => {
     return;
   }
 
-  const pairName = (black.slice(0, 2) + white.slice(0, 2)).toLowerCase();
-  playerPair = pairName;
+  if (!playerPair) {
+    alert("Please generate your pair name first.");
+    return;
+  }
 
-  const savedData = localStorage.getItem(pairName);
+  const savedData = localStorage.getItem(playerPair);
   if (savedData) {
     playerProfile = JSON.parse(savedData);
     console.log("Loaded saved profile:", playerProfile);
@@ -27,7 +60,7 @@ startGameBtn.addEventListener("click", () => {
       unlockedElements: [],
       uses: {}
     };
-    localStorage.setItem(pairName, JSON.stringify(playerProfile));
+    localStorage.setItem(playerPair, JSON.stringify(playerProfile));
     console.log("Created new profile:", playerProfile);
   }
 
@@ -68,6 +101,7 @@ let lastFormulaClaimedName = null; // Track the last claimed formula name
 
 let playerPair = null;
 let playerProfile = null;
+let currentShuffle = 0;
 
 const tileImages = {
   "black1": "https://res.cloudinary.com/dyoqz4zeb/image/upload/v1734648919/Fixation.Black1.1_adrb7w.png",
