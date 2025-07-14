@@ -1,16 +1,33 @@
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-const uiContainer = document.getElementById('uiContainer');
-const nameScreen = document.getElementById('nameScreen');
-const startGameBtn = document.getElementById('startGameBtn');
-const generatePairBtn = document.getElementById('generatePairBtn');
-const shufflePairBtn = document.getElementById('shufflePairBtn');
-const pairNameDisplay = document.getElementById('pairNameDisplay');
-const pairNameSection = document.getElementById('pairNameSection');
+let canvas, ctx, uiContainer, nameScreen;
+let startGameBtn, generatePairBtn, shufflePairBtn;
+let pairNameDisplay, pairNameSection;
 
-generatePairBtn.addEventListener("click", () => {
-  const black = document.getElementById("blackName").value.trim();
-  const white = document.getElementById("whiteName").value.trim();
+document.addEventListener('DOMContentLoaded', () => {
+  canvas = document.getElementById('gameCanvas');
+  ctx = canvas.getContext('2d');
+  uiContainer = document.getElementById('uiContainer');
+  nameScreen = document.getElementById('nameScreen');
+  startGameBtn = document.getElementById('startGameBtn');
+  generatePairBtn = document.getElementById('generatePairBtn');
+  shufflePairBtn = document.getElementById('shufflePairBtn');
+  pairNameDisplay = document.getElementById('pairNameDisplay');
+  pairNameSection = document.getElementById('pairNameSection');
+
+  generatePairBtn.addEventListener('click', generatePairName);
+  shufflePairBtn.addEventListener('click', shufflePair);
+  startGameBtn.addEventListener('click', startGameClicked);
+
+  canvas.addEventListener('click', canvasClick);
+
+  drawUI();
+  preloadImages(tileImages, () => {
+    drawUI();
+  });
+});
+
+function generatePairName() {
+  const black = document.getElementById('blackName').value.trim();
+  const white = document.getElementById('whiteName').value.trim();
 
   if (!black || !white) {
     alert("Please enter both names.");
@@ -26,18 +43,18 @@ generatePairBtn.addEventListener("click", () => {
 
   playerPair = shuffles[currentShuffle % shuffles.length].toLowerCase();
   pairNameDisplay.textContent = playerPair;
-  pairNameSection.style.display = "block";
+  pairNameSection.style.display = 'block';
   startGameBtn.disabled = false;
-});
+}
 
-shufflePairBtn.addEventListener("click", () => {
+function shufflePair() {
   currentShuffle++;
-  generatePairBtn.click();
-});
+  generatePairName();
+}
 
-startGameBtn.addEventListener("click", () => {
-  const black = document.getElementById("blackName").value.trim();
-  const white = document.getElementById("whiteName").value.trim();
+function startGameClicked() {
+  const black = document.getElementById('blackName').value.trim();
+  const white = document.getElementById('whiteName').value.trim();
 
   if (!black || !white) {
     alert("Please enter both names.");
@@ -69,7 +86,7 @@ startGameBtn.addEventListener("click", () => {
   uiContainer.style.display = "block";
   resizeCanvas();
   startGame();
-});
+}
 function resizeCanvas() {
   const rect = canvas.getBoundingClientRect();
   canvas.width = rect.width;
@@ -653,7 +670,7 @@ function shuffle(array) {
 }
 
 // EVENT LISTENERS
-canvas.addEventListener("click", (event) => {
+function canvasClick(event) {
   if (gameState !== "gameplay") return;
   
   const rect = canvas.getBoundingClientRect();
@@ -722,10 +739,4 @@ canvas.addEventListener("click", (event) => {
     drawHands();
     nextTurn();
   }
-});
-
-// INITIAL SETUP
-drawUI();
-preloadImages(tileImages, () => {
-  drawUI();
-});
+}
