@@ -5,11 +5,18 @@ function resizeCanvas() {
   const rect = canvas.getBoundingClientRect();
   canvas.width = rect.width;
   canvas.height = rect.height;
+  updateBoardOffsets();
 }
 
 window.addEventListener('resize', () => {
   resizeCanvas();
   drawHands(); // or redraw your canvas logic
+});
+window.addEventListener('orientationchange', () => {
+  setTimeout(() => {
+    resizeCanvas();
+    drawHands();
+  }, 200); // wait for layout to stabilize
 });
 
 resizeCanvas(); // Run once at start
@@ -56,8 +63,12 @@ function preloadImages(images, callback) {
 const hexRadius = 32;
 const hexWidth = 1.5 * hexRadius; 
 const hexHeight = Math.sqrt(3)*hexRadius; 
-const boardOffsetX = canvas.width / 2;
-const boardOffsetY = canvas.height / 2;
+let boardOffsetX = 0;
+let boardOffsetY = 0;
+function updateBoardOffsets() {
+  boardOffsetX = canvas.width / 2;
+  boardOffsetY = canvas.height / 2;
+}
 
 const neighborDirs = [
   {q: 1, r: 0},
