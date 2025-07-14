@@ -18,8 +18,6 @@ window.addEventListener('orientationchange', () => {
     drawHands();
   }, 200); // wait for layout to stabilize
 });
-
-resizeCanvas(); // Run once at start
 // GAME STATE VARIABLES
 let gameState = "title";
 let currentPlayer = "black";
@@ -71,6 +69,9 @@ function updateBoardOffsets() {
   boardOffsetX = canvas.width / 2;
   boardOffsetY = canvas.height / 2;
 }
+
+// Initialize board offsets after the helper is defined
+resizeCanvas(); // Run once after offsets are defined
 
 const neighborDirs = [
   {q: 1, r: 0},
