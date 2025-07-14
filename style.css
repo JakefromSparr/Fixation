@@ -25,3 +25,12 @@ canvas {
   margin-top: 30px;
   text-align: center;
 }
+
+#pairNameSection {
+  margin-top: 10px;
+}
+
+#pairNameDisplay {
+  font-weight: bold;
+  margin-right: 10px;
+}
