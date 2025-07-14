@@ -6,6 +6,28 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <button id="hamburger" aria-label="Menu">&#9776;</button>
+  <div id="menuOverlay" class="hidden">
+    <ul>
+      <li><button id="rulesBtn">Rules</button></li>
+      <li><button id="newGameBtn">New Game</button></li>
+      <li><button id="saveGameBtn">Save Game</button></li>
+      <li><button id="loadGameBtn">Load Game</button></li>
+      <li><button id="techTreeBtn">Tech Tree</button></li>
+    </ul>
+  </div>
+  <div id="rulesModal" class="modal hidden">
+    <div class="modal-content">
+      <p>Rules go here.</p>
+      <button id="closeRules">Close</button>
+    </div>
+  </div>
+  <div id="techTreeModal" class="modal hidden">
+    <div class="modal-content">
+      <p>Tech tree placeholder.</p>
+      <button id="closeTechTree">Close</button>
+    </div>
+  </div>
   <h1>Fixation Game Prototype</h1>
   <div id="nameScreen">
     <h2>Who's Playing?</h2>

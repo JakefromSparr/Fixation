@@ -13,6 +13,40 @@ document.addEventListener('DOMContentLoaded', () => {
   pairNameDisplay = document.getElementById('pairNameDisplay');
   pairNameSection = document.getElementById('pairNameSection');
 
+  const hamburger = document.getElementById('hamburger');
+  const menuOverlay = document.getElementById('menuOverlay');
+  const rulesModal = document.getElementById('rulesModal');
+  const techTreeModal = document.getElementById('techTreeModal');
+  hamburger.addEventListener('click', () => {
+    menuOverlay.classList.toggle('hidden');
+  });
+  document.getElementById('rulesBtn').addEventListener('click', () => {
+    rulesModal.classList.remove('hidden');
+    menuOverlay.classList.add('hidden');
+  });
+  document.getElementById('techTreeBtn').addEventListener('click', () => {
+    techTreeModal.classList.remove('hidden');
+    menuOverlay.classList.add('hidden');
+  });
+  document.getElementById('closeRules').addEventListener('click', () => {
+    rulesModal.classList.add('hidden');
+  });
+  document.getElementById('closeTechTree').addEventListener('click', () => {
+    techTreeModal.classList.add('hidden');
+  });
+  document.getElementById('newGameBtn').addEventListener('click', () => {
+    menuOverlay.classList.add('hidden');
+    newGame();
+  });
+  document.getElementById('saveGameBtn').addEventListener('click', () => {
+    saveGame();
+    menuOverlay.classList.add('hidden');
+  });
+  document.getElementById('loadGameBtn').addEventListener('click', () => {
+    loadGame();
+    menuOverlay.classList.add('hidden');
+  });
+
   generatePairBtn.addEventListener('click', generatePairName);
   shufflePairBtn.addEventListener('click', shufflePair);
   startGameBtn.addEventListener('click', startGameClicked);
@@ -68,8 +102,17 @@ function startGameClicked() {
 
   const savedData = localStorage.getItem(playerPair);
   if (savedData) {
-    playerProfile = JSON.parse(savedData);
-    console.log("Loaded saved profile:", playerProfile);
+    const data = JSON.parse(savedData);
+    playerProfile = data.profile || {
+      names: { black, white },
+      discoveredFormulas: [],
+      unlockedElements: [],
+      uses: {}
+    };
+    blackScore = data.blackScore || 0;
+    whiteScore = data.whiteScore || 0;
+    roundNumber = data.roundNumber || 1;
+    console.log("Loaded saved profile:", data);
   } else {
     playerProfile = {
       names: { black, white },
@@ -77,7 +120,7 @@ function startGameClicked() {
       unlockedElements: [],
       uses: {}
     };
-    localStorage.setItem(playerPair, JSON.stringify(playerProfile));
+    localStorage.setItem(playerPair, JSON.stringify({profile: playerProfile}));
     console.log("Created new profile:", playerProfile);
   }
 
@@ -565,6 +608,47 @@ function startGame() {
   roundNumber = 1;
   gameState = "turnAnnounce";
   drawUI();
+}
+
+function newGame() {
+  blackScore = 0;
+  whiteScore = 0;
+  for (const key in boardspace) {
+    delete boardspace[key];
+  }
+  isFirstMove = true;
+  selectedTile = null;
+  highlightedSpaces = [];
+  blackHand = [];
+  whiteHand = [];
+  resetStacks();
+  startGame();
+}
+
+function saveGame() {
+  const data = {
+    profile: playerProfile,
+    blackScore,
+    whiteScore,
+    roundNumber
+  };
+  localStorage.setItem(playerPair, JSON.stringify(data));
+  alert('Game saved');
+}
+
+function loadGame() {
+  const saved = localStorage.getItem(playerPair);
+  if (saved) {
+    const data = JSON.parse(saved);
+    if (data.profile) playerProfile = data.profile;
+    blackScore = data.blackScore || 0;
+    whiteScore = data.whiteScore || 0;
+    roundNumber = data.roundNumber || 1;
+    drawUI();
+    alert('Game loaded');
+  } else {
+    alert('No saved data');
+  }
 }
 
 function scoreRound(winnerColor, formulaMatched) {

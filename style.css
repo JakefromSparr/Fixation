@@ -34,3 +34,59 @@ canvas {
   font-weight: bold;
   margin-right: 10px;
 }
+
+/* --- Menu styles --- */
+.hidden {
+  display: none;
+}
+
+#hamburger {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: transparent;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  z-index: 1000;
+}
+
+#menuOverlay {
+  position: absolute;
+  top: 40px;
+  left: 10px;
+  background: white;
+  border: 1px solid #333;
+  border-radius: 4px;
+  padding: 10px;
+  z-index: 999;
+}
+
+#menuOverlay ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+#menuOverlay li {
+  margin-bottom: 5px;
+}
+
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1001;
+}
+
+.modal-content {
+  background: white;
+  padding: 20px;
+  border-radius: 4px;
+}
