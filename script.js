@@ -1,7 +1,23 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const uiContainer = document.getElementById('uiContainer');
+function resizeCanvas() {
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width;
+  canvas.height = rect.height;
+  updateBoardOffsets();
+}
 
+window.addEventListener('resize', () => {
+  resizeCanvas();
+  drawHands(); // or redraw your canvas logic
+});
+window.addEventListener('orientationchange', () => {
+  setTimeout(() => {
+    resizeCanvas();
+    drawHands();
+  }, 200); // wait for layout to stabilize
+});
 // GAME STATE VARIABLES
 let gameState = "title";
 let currentPlayer = "black";
@@ -25,6 +41,7 @@ const tileImages = {
 
 const loadedImages = {};
 let imagesLoaded = 0;
+let imagesReady = false;
 
 function preloadImages(images, callback) {
   const keys = Object.keys(images);
@@ -35,6 +52,7 @@ function preloadImages(images, callback) {
       loadedImages[key] = img;
       imagesLoaded++;
       if (imagesLoaded === keys.length) {
+        imagesReady = true;
         callback();
       }
     };
@@ -45,8 +63,15 @@ function preloadImages(images, callback) {
 const hexRadius = 32;
 const hexWidth = 1.5 * hexRadius; 
 const hexHeight = Math.sqrt(3)*hexRadius; 
-const boardOffsetX = canvas.width / 2;
-const boardOffsetY = canvas.height / 2;
+let boardOffsetX = 0;
+let boardOffsetY = 0;
+function updateBoardOffsets() {
+  boardOffsetX = canvas.width / 2;
+  boardOffsetY = canvas.height / 2;
+}
+
+// Initialize board offsets after the helper is defined
+resizeCanvas(); // Run once after offsets are defined
 
 const neighborDirs = [
   {q: 1, r: 0},
@@ -399,6 +424,12 @@ function drawUI() {
     const startBtn = document.createElement('button');
     startBtn.innerText = "Start Game";
     startBtn.onclick = () => startGame();
+    if (!imagesReady) {
+      startBtn.disabled = true;
+      const loadingMsg = document.createElement('div');
+      loadingMsg.innerText = "Loading assets...";
+      uiContainer.appendChild(loadingMsg);
+    }
     uiContainer.appendChild(startBtn);
 
   } else if (gameState === "turnAnnounce") {
@@ -435,6 +466,10 @@ function drawUI() {
 }
 
 function startGame() {
+  if (!imagesReady) {
+    alert("Images are still loading. Please try again in a moment.");
+    return;
+  }
   currentPlayer = "black";
   currentTurn = 1;
   roundNumber = 1;
@@ -617,6 +652,7 @@ canvas.addEventListener("click", (event) => {
 });
 
 // INITIAL SETUP
+drawUI();
 preloadImages(tileImages, () => {
   drawUI();
 });
