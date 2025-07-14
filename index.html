@@ -13,7 +13,7 @@
       <li><button id="newGameBtn">New Game</button></li>
       <li><button id="saveGameBtn">Save Game</button></li>
       <li><button id="loadGameBtn">Load Game</button></li>
-      <li><button id="techTreeBtn">Tech Tree</button></li>
+      <li><button id="magnumOpusBtn">Magnum Opus</button></li>
     </ul>
   </div>
   <div id="rulesModal" class="modal hidden">
@@ -22,10 +22,18 @@
       <button id="closeRules">Close</button>
     </div>
   </div>
-  <div id="techTreeModal" class="modal hidden">
+  <div id="magnumOpusModal" class="modal hidden">
     <div class="modal-content">
-      <p>Tech tree placeholder.</p>
-      <button id="closeTechTree">Close</button>
+      <h2>The Magnum Opus</h2>
+      <div id="techTreeContainer">
+        <canvas id="techTreeCanvas" width="700" height="500"></canvas>
+        <div id="techTreeInfo">
+          <h3 id="selectedNodeName"></h3>
+          <p id="selectedNodeDescription"></p>
+          <button id="unlockNodeBtn" style="display:none;">Unlock (Cost: <span id="unlockCost"></span> Essence)</button>
+        </div>
+        <button id="closeMagnumOpus">Close</button>
+      </div>
     </div>
   </div>
   <h1>Fixation Game Prototype</h1>

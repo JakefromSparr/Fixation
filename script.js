@@ -1,6 +1,7 @@
 let canvas, ctx, uiContainer, nameScreen;
 let startGameBtn, generatePairBtn, shufflePairBtn;
 let pairNameDisplay, pairNameSection;
+let magnumOpusModal, magnumOpusBtn, closeMagnumOpusBtn;
 
 document.addEventListener('DOMContentLoaded', () => {
   canvas = document.getElementById('gameCanvas');
@@ -16,7 +17,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const hamburger = document.getElementById('hamburger');
   const menuOverlay = document.getElementById('menuOverlay');
   const rulesModal = document.getElementById('rulesModal');
-  const techTreeModal = document.getElementById('techTreeModal');
+  magnumOpusModal = document.getElementById('magnumOpusModal');
+  magnumOpusBtn = document.getElementById('magnumOpusBtn');
+  closeMagnumOpusBtn = document.getElementById('closeMagnumOpus');
   hamburger.addEventListener('click', () => {
     menuOverlay.classList.toggle('hidden');
   });
@@ -24,16 +27,19 @@ document.addEventListener('DOMContentLoaded', () => {
     rulesModal.classList.remove('hidden');
     menuOverlay.classList.add('hidden');
   });
-  document.getElementById('techTreeBtn').addEventListener('click', () => {
-    techTreeModal.classList.remove('hidden');
+  magnumOpusBtn.addEventListener('click', () => {
+    magnumOpusModal.classList.remove('hidden');
     menuOverlay.classList.add('hidden');
+    drawTechTree();
   });
   document.getElementById('closeRules').addEventListener('click', () => {
     rulesModal.classList.add('hidden');
   });
-  document.getElementById('closeTechTree').addEventListener('click', () => {
-    techTreeModal.classList.add('hidden');
+  closeMagnumOpusBtn.addEventListener('click', () => {
+    magnumOpusModal.classList.add('hidden');
   });
+  document.getElementById('techTreeCanvas').addEventListener('click', handleTechTreeClick);
+  document.getElementById('unlockNodeBtn').addEventListener('click', unlockTechTreeNode);
   document.getElementById('newGameBtn').addEventListener('click', () => {
     menuOverlay.classList.add('hidden');
     newGame();
@@ -155,6 +161,14 @@ let blackScore = 0;
 let whiteScore = 0;
 let roundNumber = 1;
 
+// Tech tree state
+let blackEssence = 0;
+let whiteEssence = 0;
+let blackUnlockedNodes = new Set();
+let whiteUnlockedNodes = new Set();
+let blackActiveAbilities = {};
+let whiteActiveAbilities = {};
+
 let isFirstMove = true;
 let lastPlayerToPlace = null;
 let lastFormulaClaimedName = null; // Track the last claimed formula name
@@ -228,6 +242,78 @@ const formulas = {
   // Add more formulas here
 };
 
+// Tech tree definitions
+const techTree = {
+  Water: {
+    color: "#66ccff",
+    nodes: [
+      { id: "Water1", name: "Slip", tier: 1, dependencies: [], cost: 1, type: "Water", unlockedInitially: true,
+        effect: { description: "Once per game, move a tile to a new position without disturbing its bonds." },
+        isUsed: { black: false, white: false }
+      },
+      { id: "Water2", name: "Rinse", tier: 2, dependencies: ["Water1"], cost: 2, type: "Water",
+        effect: { description: "Once per game, move a tile to a new position, even if it disturbs bonds (cannot isolate)." },
+        isUsed: { black: false, white: false }
+      },
+      { id: "Water3", name: "Soak", tier: 3, dependencies: ["Water2"], cost: 3, type: "Water",
+        effect: { description: "Indefinitely adds a 4-potency tile to both players' decks." },
+        isPermanent: true
+      }
+    ]
+  },
+  Air: {
+    color: "#ccffff",
+    nodes: [
+      { id: "Air1", name: "Trace", tier: 1, dependencies: [], cost: 1, type: "Air", unlockedInitially: true,
+        effect: { description: "Once per game, make an empty space on the board unusable." },
+        isUsed: { black: false, white: false }
+      },
+      { id: "Air2", name: "Cool", tier: 2, dependencies: ["Air1"], cost: 2, type: "Air",
+        effect: { description: "Once per game, reshuffle your hand." },
+        isUsed: { black: false, white: false }
+      },
+      { id: "Air3", name: "Inflate", tier: 3, dependencies: ["Air2"], cost: 3, type: "Air",
+        effect: { description: "Indefinitely raise the point value of 1-pip tiles to two." },
+        isPermanent: true
+      }
+    ]
+  },
+  Fire: {
+    color: "#ff9966",
+    nodes: [
+      { id: "Fire1", name: "Simmer", tier: 1, dependencies: [], cost: 1, type: "Fire", unlockedInitially: true,
+        effect: { description: "Once per game, play a tile no matter what bond it is, counted as zero points." },
+        isUsed: { black: false, white: false }
+      },
+      { id: "Fire2", name: "Burn", tier: 2, dependencies: ["Fire1"], cost: 2, type: "Fire",
+        effect: { description: "Once per game, remove a slot from opponent's hand (2 tiles max for remaining rounds)." },
+        isUsed: { black: false, white: false }
+      },
+      { id: "Fire3", name: "Meld", tier: 3, dependencies: ["Fire2"], cost: 3, type: "Fire",
+        effect: { description: "Indefinitely adds a 4-potency tile to both players' decks." },
+        isPermanent: true
+      }
+    ]
+  },
+  Earth: {
+    color: "#cc9966",
+    nodes: [
+      { id: "Earth1", name: "Pile", tier: 1, dependencies: [], cost: 1, type: "Earth", unlockedInitially: true,
+        effect: { description: "Once per game, place a tile on top of an existing tile (increase potency)." },
+        isUsed: { black: false, white: false }
+      },
+      { id: "Earth2", name: "Bury", tier: 2, dependencies: ["Earth1"], cost: 2, type: "Earth",
+        effect: { description: "Once per game, place a tile on top of an existing tile (decrease potency)." },
+        isUsed: { black: false, white: false }
+      },
+      { id: "Earth3", name: "Forge", tier: 3, dependencies: ["Earth2"], cost: 3, type: "Earth",
+        effect: { description: "Indefinitely adds a 4-potency tile to both players' decks." },
+        isPermanent: true
+      }
+    ]
+  }
+};
+
 // HANDS & STACKS
 let blackStack = [];
 let whiteStack = [];
@@ -250,7 +336,7 @@ resetStacks();
 let blackHand = [];
 let whiteHand = [];
 let selectedTile = null;
-const boardspace = {};
+let boardspace = {};
 let highlightedSpaces = [];
 
 // HELPER FUNCTIONS
@@ -542,11 +628,11 @@ function claimFormula(cluster) {
   for (const [formulaName, configurations] of Object.entries(formulas)) {
     if (matchesFormula(cluster, configurations)) {
       lastFormulaClaimedName = formulaName;
-      return true;
+      return { name: formulaName };
     }
   }
   lastFormulaClaimedName = null;
-  return false;
+  return null;
 }
 
 // UI & GAME FLOW
@@ -621,6 +707,12 @@ function newGame() {
   highlightedSpaces = [];
   blackHand = [];
   whiteHand = [];
+  blackEssence = 0;
+  whiteEssence = 0;
+  blackUnlockedNodes = new Set();
+  whiteUnlockedNodes = new Set();
+  blackActiveAbilities = {};
+  whiteActiveAbilities = {};
   resetStacks();
   startGame();
 }
@@ -630,7 +722,18 @@ function saveGame() {
     profile: playerProfile,
     blackScore,
     whiteScore,
-    roundNumber
+    roundNumber,
+    blackEssence,
+    whiteEssence,
+    blackUnlockedNodes: Array.from(blackUnlockedNodes),
+    whiteUnlockedNodes: Array.from(whiteUnlockedNodes),
+    blackActiveAbilities,
+    whiteActiveAbilities,
+    blackStack,
+    whiteStack,
+    blackHand,
+    whiteHand,
+    boardspace: Object.values(boardspace)
   };
   localStorage.setItem(playerPair, JSON.stringify(data));
   alert('Game saved');
@@ -644,6 +747,23 @@ function loadGame() {
     blackScore = data.blackScore || 0;
     whiteScore = data.whiteScore || 0;
     roundNumber = data.roundNumber || 1;
+    blackEssence = data.blackEssence || 0;
+    whiteEssence = data.whiteEssence || 0;
+    blackUnlockedNodes = new Set(data.blackUnlockedNodes || []);
+    whiteUnlockedNodes = new Set(data.whiteUnlockedNodes || []);
+    blackActiveAbilities = data.blackActiveAbilities || {};
+    whiteActiveAbilities = data.whiteActiveAbilities || {};
+    boardspace = {};
+    if (data.boardspace) {
+      data.boardspace.forEach(tile => {
+        boardspace[`${tile.q},${tile.r}`] = tile;
+      });
+    }
+    blackStack = data.blackStack || [];
+    whiteStack = data.whiteStack || [];
+    blackHand = data.blackHand || [];
+    whiteHand = data.whiteHand || [];
+    applyPermanentEffects();
     drawUI();
     alert('Game loaded');
   } else {
@@ -651,14 +771,35 @@ function loadGame() {
   }
 }
 
-function scoreRound(winnerColor, formulaMatched) {
+function applyPermanentEffects() {
+  // Apply effects for unlocked tier 3 nodes
+  // Currently only adds 4-potency tiles if required
+  const applyForPlayer = player => {
+    if (player === 'black' && blackUnlockedNodes.has('Water3') && !blackActiveAbilities.Water3) {
+      add4PotencyTilesToStacks('black');
+      blackActiveAbilities.Water3 = true;
+    }
+    if (player === 'white' && whiteUnlockedNodes.has('Water3') && !whiteActiveAbilities.Water3) {
+      add4PotencyTilesToStacks('white');
+      whiteActiveAbilities.Water3 = true;
+    }
+  };
+  applyForPlayer('black');
+  applyForPlayer('white');
+}
+
+function scoreRound(winnerColor, formulaDetails) {
   let totalPips = 0;
   for (const key in boardspace) {
     const tile = boardspace[key];
     totalPips += tile.pips;
   }
 
-  let awardedPoints = formulaMatched ? totalPips * 2 : totalPips;
+  let awardedPoints = totalPips;
+  if (formulaDetails) {
+    awardedPoints *= 2;
+    if (winnerColor === 'black') blackEssence += 1; else whiteEssence += 1;
+  }
 
   if (winnerColor === "black") {
     blackScore += awardedPoints;
@@ -693,18 +834,18 @@ function resetForNextRound() {
 
 function endRound() {
   const lastTileEntry = Object.entries(boardspace).find(([key, tile]) => tile.color === lastPlayerToPlace);
-  let formulaMatched = false;
+  let formulaDetails = null;
 
   if (lastTileEntry) {
     const [q, r] = lastTileEntry[0].split(',').map(Number);
     const cluster = extractCluster(q, r);
-    formulaMatched = claimFormula(cluster);
+    formulaDetails = claimFormula(cluster);
   }
 
   // Award points now
-  scoreRound(lastPlayerToPlace, formulaMatched);
+  scoreRound(lastPlayerToPlace, formulaDetails);
 
-  if (formulaMatched && lastFormulaClaimedName) {
+  if (formulaDetails && lastFormulaClaimedName) {
     // Show a special popup before showing round end
     alert(`${lastPlayerToPlace.toUpperCase()} discovered ${lastFormulaClaimedName}! Incredible! Their points are doubled for claiming this formula.`);
   }
@@ -822,5 +963,129 @@ function canvasClick(event) {
 
     drawHands();
     nextTurn();
+  }
+}
+
+// ---------- Tech Tree Functions ----------
+let techTreeCanvas, techTreeCtx, selectedTechTreeNode;
+
+function drawTechTree() {
+  if (!techTreeCanvas) {
+    techTreeCanvas = document.getElementById('techTreeCanvas');
+    techTreeCtx = techTreeCanvas.getContext('2d');
+  }
+  techTreeCtx.clearRect(0, 0, techTreeCanvas.width, techTreeCanvas.height);
+  techTreeCtx.font = '14px Arial';
+  techTreeCtx.textAlign = 'center';
+  techTreeCtx.textBaseline = 'middle';
+
+  let branchIndex = 0;
+  for (const branchName in techTree) {
+    const branch = techTree[branchName];
+    const branchStartX = 100 + branchIndex * 150;
+
+    branch.nodes.forEach(node => {
+      node.vizX = branchStartX + (node.tier - 1) * 100;
+      node.vizY = 100 + (node.tier - 1) * 120;
+
+      const unlocked = currentPlayer === 'black' ?
+        blackUnlockedNodes.has(node.id) :
+        whiteUnlockedNodes.has(node.id);
+
+      techTreeCtx.fillStyle = unlocked ? branch.color : '#ddd';
+      techTreeCtx.strokeStyle = '#333';
+      techTreeCtx.lineWidth = 2;
+      techTreeCtx.beginPath();
+      techTreeCtx.arc(node.vizX, node.vizY, 25, 0, Math.PI*2);
+      techTreeCtx.fill();
+      techTreeCtx.stroke();
+
+      techTreeCtx.fillStyle = '#000';
+      techTreeCtx.fillText(node.name, node.vizX, node.vizY - 15);
+      techTreeCtx.fillText(`(${node.cost})`, node.vizX, node.vizY + 15);
+    });
+    branchIndex++;
+  }
+  updateTechTreeInfoDisplay();
+}
+
+function handleTechTreeClick(evt) {
+  const rect = techTreeCanvas.getBoundingClientRect();
+  const x = evt.clientX - rect.left;
+  const y = evt.clientY - rect.top;
+  selectedTechTreeNode = null;
+  for (const branchName in techTree) {
+    const branch = techTree[branchName];
+    for (const node of branch.nodes) {
+      const dist = Math.hypot(x - node.vizX, y - node.vizY);
+      if (dist < 25) {
+        selectedTechTreeNode = node;
+        break;
+      }
+    }
+  }
+  drawTechTree();
+  if (selectedTechTreeNode) {
+    techTreeCtx.strokeStyle = 'yellow';
+    techTreeCtx.lineWidth = 4;
+    techTreeCtx.beginPath();
+    techTreeCtx.arc(selectedTechTreeNode.vizX, selectedTechTreeNode.vizY, 25, 0, Math.PI*2);
+    techTreeCtx.stroke();
+  }
+  updateTechTreeInfoDisplay();
+}
+
+function updateTechTreeInfoDisplay() {
+  const nameEl = document.getElementById('selectedNodeName');
+  const descEl = document.getElementById('selectedNodeDescription');
+  const unlockBtn = document.getElementById('unlockNodeBtn');
+  const costSpan = document.getElementById('unlockCost');
+
+  if (!selectedTechTreeNode) {
+    nameEl.textContent = 'Select a Node';
+    descEl.textContent = '';
+    unlockBtn.style.display = 'none';
+    return;
+  }
+
+  nameEl.textContent = selectedTechTreeNode.name;
+  descEl.textContent = selectedTechTreeNode.effect.description;
+  costSpan.textContent = selectedTechTreeNode.cost;
+
+  const unlockedSet = currentPlayer === 'black' ? blackUnlockedNodes : whiteUnlockedNodes;
+  const essence = currentPlayer === 'black' ? blackEssence : whiteEssence;
+  const isUnlocked = unlockedSet.has(selectedTechTreeNode.id);
+  const depsMet = selectedTechTreeNode.dependencies.every(d => unlockedSet.has(d));
+  unlockBtn.style.display = isUnlocked ? 'none' : 'inline-block';
+  if (!isUnlocked) {
+    unlockBtn.disabled = !(depsMet && essence >= selectedTechTreeNode.cost);
+  }
+}
+
+function unlockTechTreeNode() {
+  if (!selectedTechTreeNode) return;
+  const unlockedSet = currentPlayer === 'black' ? blackUnlockedNodes : whiteUnlockedNodes;
+  let essenceRef = currentPlayer === 'black' ? 'blackEssence' : 'whiteEssence';
+  if (unlockedSet.has(selectedTechTreeNode.id)) return;
+  const depsMet = selectedTechTreeNode.dependencies.every(d => unlockedSet.has(d));
+  if (!depsMet) return;
+  if (window[essenceRef] < selectedTechTreeNode.cost) return;
+  window[essenceRef] -= selectedTechTreeNode.cost;
+  unlockedSet.add(selectedTechTreeNode.id);
+  if (selectedTechTreeNode.isPermanent) {
+    applyPermanentEffects();
+  }
+  updateTechTreeInfoDisplay();
+  drawTechTree();
+}
+
+function add4PotencyTilesToStacks(color) {
+  const type = `${color}4`;
+  if (!tileImages[type]) {
+    tileImages[type] = tileImages[`${color}3`];
+  }
+  const stack = color === 'black' ? blackStack : whiteStack;
+  for (let i = 0; i < 3; i++) {
+    stack.push({ color, pips: 4, remainingPips: 4, type, q:null, r:null });
   }
 }
