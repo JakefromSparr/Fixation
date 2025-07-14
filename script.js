@@ -43,6 +43,7 @@ const tileImages = {
 
 const loadedImages = {};
 let imagesLoaded = 0;
+let imagesReady = false;
 
 function preloadImages(images, callback) {
   const keys = Object.keys(images);
@@ -53,6 +54,7 @@ function preloadImages(images, callback) {
       loadedImages[key] = img;
       imagesLoaded++;
       if (imagesLoaded === keys.length) {
+        imagesReady = true;
         callback();
       }
     };
@@ -421,6 +423,12 @@ function drawUI() {
     const startBtn = document.createElement('button');
     startBtn.innerText = "Start Game";
     startBtn.onclick = () => startGame();
+    if (!imagesReady) {
+      startBtn.disabled = true;
+      const loadingMsg = document.createElement('div');
+      loadingMsg.innerText = "Loading assets...";
+      uiContainer.appendChild(loadingMsg);
+    }
     uiContainer.appendChild(startBtn);
 
   } else if (gameState === "turnAnnounce") {
@@ -457,6 +465,10 @@ function drawUI() {
 }
 
 function startGame() {
+  if (!imagesReady) {
+    alert("Images are still loading. Please try again in a moment.");
+    return;
+  }
   currentPlayer = "black";
   currentTurn = 1;
   roundNumber = 1;
@@ -639,6 +651,7 @@ canvas.addEventListener("click", (event) => {
 });
 
 // INITIAL SETUP
+drawUI();
 preloadImages(tileImages, () => {
   drawUI();
 });
