@@ -1,7 +1,18 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const uiContainer = document.getElementById('uiContainer');
+function resizeCanvas() {
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width;
+  canvas.height = rect.height;
+}
 
+window.addEventListener('resize', () => {
+  resizeCanvas();
+  drawHands(); // or redraw your canvas logic
+});
+
+resizeCanvas(); // Run once at start
 // GAME STATE VARIABLES
 let gameState = "title";
 let currentPlayer = "black";
