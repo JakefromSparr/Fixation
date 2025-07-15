@@ -2,6 +2,7 @@ let canvas, ctx, uiContainer, nameScreen;
 let startGameBtn, generatePairBtn, shufflePairBtn;
 let pairNameDisplay, pairNameSection;
 let magnumOpusModal, magnumOpusBtn, closeMagnumOpusBtn;
+let essenceDisplay;
 
 document.addEventListener('DOMContentLoaded', () => {
   canvas = document.getElementById('gameCanvas');
@@ -20,6 +21,8 @@ document.addEventListener('DOMContentLoaded', () => {
   magnumOpusModal = document.getElementById('magnumOpusModal');
   magnumOpusBtn = document.getElementById('magnumOpusBtn');
   closeMagnumOpusBtn = document.getElementById('closeMagnumOpus');
+  essenceDisplay = document.getElementById('essenceCount');
+  updateEssenceDisplay();
   hamburger.addEventListener('click', () => {
     menuOverlay.classList.toggle('hidden');
   });
@@ -31,12 +34,18 @@ document.addEventListener('DOMContentLoaded', () => {
     magnumOpusModal.classList.remove('hidden');
     menuOverlay.classList.add('hidden');
     drawTechTree();
+    updateEssenceDisplay();
   });
   document.getElementById('closeRules').addEventListener('click', () => {
     rulesModal.classList.add('hidden');
   });
   closeMagnumOpusBtn.addEventListener('click', () => {
     magnumOpusModal.classList.add('hidden');
+  });
+  magnumOpusModal.addEventListener('click', (evt) => {
+    if (evt.target === magnumOpusModal) {
+      magnumOpusModal.classList.add('hidden');
+    }
   });
   document.getElementById('techTreeCanvas').addEventListener('click', handleTechTreeClick);
   document.getElementById('unlockNodeBtn').addEventListener('click', unlockTechTreeNode);
@@ -134,7 +143,7 @@ function startGameClicked() {
   canvas.style.display = "block";
   uiContainer.style.display = "block";
   resizeCanvas();
-  startGame();
+  newGame();
 }
 function resizeCanvas() {
   const rect = canvas.getBoundingClientRect();
@@ -162,12 +171,15 @@ let whiteScore = 0;
 let roundNumber = 1;
 
 // Tech tree state
-let blackEssence = 0;
-let whiteEssence = 0;
-let blackUnlockedNodes = new Set();
-let whiteUnlockedNodes = new Set();
+let essence = 0;
+let unlockedNodes = new Set();
 let blackActiveAbilities = {};
 let whiteActiveAbilities = {};
+
+function updateEssenceDisplay() {
+  if (!essenceDisplay) return;
+  essenceDisplay.textContent = essence;
+}
 
 let isFirstMove = true;
 let lastPlayerToPlace = null;
@@ -313,6 +325,17 @@ const techTree = {
     ]
   }
 };
+
+function initializeTechTree() {
+  unlockedNodes = new Set();
+  for (const branchName in techTree) {
+    techTree[branchName].nodes.forEach(node => {
+      if (node.unlockedInitially) {
+        unlockedNodes.add(node.id);
+      }
+    });
+  }
+}
 
 // HANDS & STACKS
 let blackStack = [];
@@ -707,13 +730,12 @@ function newGame() {
   highlightedSpaces = [];
   blackHand = [];
   whiteHand = [];
-  blackEssence = 0;
-  whiteEssence = 0;
-  blackUnlockedNodes = new Set();
-  whiteUnlockedNodes = new Set();
+  essence = 0;
+  initializeTechTree();
   blackActiveAbilities = {};
   whiteActiveAbilities = {};
   resetStacks();
+  updateEssenceDisplay();
   startGame();
 }
 
@@ -723,10 +745,8 @@ function saveGame() {
     blackScore,
     whiteScore,
     roundNumber,
-    blackEssence,
-    whiteEssence,
-    blackUnlockedNodes: Array.from(blackUnlockedNodes),
-    whiteUnlockedNodes: Array.from(whiteUnlockedNodes),
+    essence,
+    unlockedNodes: Array.from(unlockedNodes),
     blackActiveAbilities,
     whiteActiveAbilities,
     blackStack,
@@ -747,10 +767,8 @@ function loadGame() {
     blackScore = data.blackScore || 0;
     whiteScore = data.whiteScore || 0;
     roundNumber = data.roundNumber || 1;
-    blackEssence = data.blackEssence || 0;
-    whiteEssence = data.whiteEssence || 0;
-    blackUnlockedNodes = new Set(data.blackUnlockedNodes || []);
-    whiteUnlockedNodes = new Set(data.whiteUnlockedNodes || []);
+    essence = data.essence || 0;
+    unlockedNodes = new Set(data.unlockedNodes || []);
     blackActiveAbilities = data.blackActiveAbilities || {};
     whiteActiveAbilities = data.whiteActiveAbilities || {};
     boardspace = {};
@@ -764,6 +782,7 @@ function loadGame() {
     blackHand = data.blackHand || [];
     whiteHand = data.whiteHand || [];
     applyPermanentEffects();
+    updateEssenceDisplay();
     drawUI();
     alert('Game loaded');
   } else {
@@ -774,18 +793,16 @@ function loadGame() {
 function applyPermanentEffects() {
   // Apply effects for unlocked tier 3 nodes
   // Currently only adds 4-potency tiles if required
-  const applyForPlayer = player => {
-    if (player === 'black' && blackUnlockedNodes.has('Water3') && !blackActiveAbilities.Water3) {
+  if (unlockedNodes.has('Water3')) {
+    if (!blackActiveAbilities.Water3) {
       add4PotencyTilesToStacks('black');
       blackActiveAbilities.Water3 = true;
     }
-    if (player === 'white' && whiteUnlockedNodes.has('Water3') && !whiteActiveAbilities.Water3) {
+    if (!whiteActiveAbilities.Water3) {
       add4PotencyTilesToStacks('white');
       whiteActiveAbilities.Water3 = true;
     }
-  };
-  applyForPlayer('black');
-  applyForPlayer('white');
+  }
 }
 
 function scoreRound(winnerColor, formulaDetails) {
@@ -798,7 +815,8 @@ function scoreRound(winnerColor, formulaDetails) {
   let awardedPoints = totalPips;
   if (formulaDetails) {
     awardedPoints *= 2;
-    if (winnerColor === 'black') blackEssence += 1; else whiteEssence += 1;
+    essence += 1;
+    updateEssenceDisplay();
   }
 
   if (winnerColor === "black") {
@@ -854,6 +872,13 @@ function endRound() {
 
   if (roundNumber > 3) {
     // Game ends after 3 rounds
+    let winner = null;
+    if (blackScore > whiteScore) winner = 'black';
+    else if (whiteScore > blackScore) winner = 'white';
+    if (winner) {
+      essence += 1;
+      updateEssenceDisplay();
+    }
     gameState = "end";
     drawUI();
   } else {
@@ -988,9 +1013,7 @@ function drawTechTree() {
       node.vizX = branchStartX + (node.tier - 1) * 100;
       node.vizY = 100 + (node.tier - 1) * 120;
 
-      const unlocked = currentPlayer === 'black' ?
-        blackUnlockedNodes.has(node.id) :
-        whiteUnlockedNodes.has(node.id);
+      const unlocked = unlockedNodes.has(node.id);
 
       techTreeCtx.fillStyle = unlocked ? branch.color : '#ddd';
       techTreeCtx.strokeStyle = '#333';
@@ -1052,10 +1075,8 @@ function updateTechTreeInfoDisplay() {
   descEl.textContent = selectedTechTreeNode.effect.description;
   costSpan.textContent = selectedTechTreeNode.cost;
 
-  const unlockedSet = currentPlayer === 'black' ? blackUnlockedNodes : whiteUnlockedNodes;
-  const essence = currentPlayer === 'black' ? blackEssence : whiteEssence;
-  const isUnlocked = unlockedSet.has(selectedTechTreeNode.id);
-  const depsMet = selectedTechTreeNode.dependencies.every(d => unlockedSet.has(d));
+  const isUnlocked = unlockedNodes.has(selectedTechTreeNode.id);
+  const depsMet = selectedTechTreeNode.dependencies.every(d => unlockedNodes.has(d));
   unlockBtn.style.display = isUnlocked ? 'none' : 'inline-block';
   if (!isUnlocked) {
     unlockBtn.disabled = !(depsMet && essence >= selectedTechTreeNode.cost);
@@ -1064,17 +1085,16 @@ function updateTechTreeInfoDisplay() {
 
 function unlockTechTreeNode() {
   if (!selectedTechTreeNode) return;
-  const unlockedSet = currentPlayer === 'black' ? blackUnlockedNodes : whiteUnlockedNodes;
-  let essenceRef = currentPlayer === 'black' ? 'blackEssence' : 'whiteEssence';
-  if (unlockedSet.has(selectedTechTreeNode.id)) return;
-  const depsMet = selectedTechTreeNode.dependencies.every(d => unlockedSet.has(d));
+  if (unlockedNodes.has(selectedTechTreeNode.id)) return;
+  const depsMet = selectedTechTreeNode.dependencies.every(d => unlockedNodes.has(d));
   if (!depsMet) return;
-  if (window[essenceRef] < selectedTechTreeNode.cost) return;
-  window[essenceRef] -= selectedTechTreeNode.cost;
-  unlockedSet.add(selectedTechTreeNode.id);
+  if (essence < selectedTechTreeNode.cost) return;
+  essence -= selectedTechTreeNode.cost;
+  unlockedNodes.add(selectedTechTreeNode.id);
   if (selectedTechTreeNode.isPermanent) {
     applyPermanentEffects();
   }
+  updateEssenceDisplay();
   updateTechTreeInfoDisplay();
   drawTechTree();
 }
