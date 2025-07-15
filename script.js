@@ -2,6 +2,7 @@ let canvas, ctx, uiContainer, nameScreen;
 let startGameBtn, generatePairBtn, shufflePairBtn;
 let pairNameDisplay, pairNameSection;
 let magnumOpusModal, magnumOpusBtn, closeMagnumOpusBtn;
+let blackEssenceDisplay, whiteEssenceDisplay;
 
 document.addEventListener('DOMContentLoaded', () => {
   canvas = document.getElementById('gameCanvas');
@@ -20,6 +21,9 @@ document.addEventListener('DOMContentLoaded', () => {
   magnumOpusModal = document.getElementById('magnumOpusModal');
   magnumOpusBtn = document.getElementById('magnumOpusBtn');
   closeMagnumOpusBtn = document.getElementById('closeMagnumOpus');
+  blackEssenceDisplay = document.getElementById('blackEssenceDisplay');
+  whiteEssenceDisplay = document.getElementById('whiteEssenceDisplay');
+  updateEssenceDisplay();
   hamburger.addEventListener('click', () => {
     menuOverlay.classList.toggle('hidden');
   });
@@ -31,12 +35,18 @@ document.addEventListener('DOMContentLoaded', () => {
     magnumOpusModal.classList.remove('hidden');
     menuOverlay.classList.add('hidden');
     drawTechTree();
+    updateEssenceDisplay();
   });
   document.getElementById('closeRules').addEventListener('click', () => {
     rulesModal.classList.add('hidden');
   });
   closeMagnumOpusBtn.addEventListener('click', () => {
     magnumOpusModal.classList.add('hidden');
+  });
+  magnumOpusModal.addEventListener('click', (evt) => {
+    if (evt.target === magnumOpusModal) {
+      magnumOpusModal.classList.add('hidden');
+    }
   });
   document.getElementById('techTreeCanvas').addEventListener('click', handleTechTreeClick);
   document.getElementById('unlockNodeBtn').addEventListener('click', unlockTechTreeNode);
@@ -168,6 +178,12 @@ let blackUnlockedNodes = new Set();
 let whiteUnlockedNodes = new Set();
 let blackActiveAbilities = {};
 let whiteActiveAbilities = {};
+
+function updateEssenceDisplay() {
+  if (!blackEssenceDisplay || !whiteEssenceDisplay) return;
+  blackEssenceDisplay.textContent = blackEssence;
+  whiteEssenceDisplay.textContent = whiteEssence;
+}
 
 let isFirstMove = true;
 let lastPlayerToPlace = null;
@@ -714,6 +730,7 @@ function newGame() {
   blackActiveAbilities = {};
   whiteActiveAbilities = {};
   resetStacks();
+  updateEssenceDisplay();
   startGame();
 }
 
@@ -764,6 +781,7 @@ function loadGame() {
     blackHand = data.blackHand || [];
     whiteHand = data.whiteHand || [];
     applyPermanentEffects();
+    updateEssenceDisplay();
     drawUI();
     alert('Game loaded');
   } else {
@@ -799,6 +817,7 @@ function scoreRound(winnerColor, formulaDetails) {
   if (formulaDetails) {
     awardedPoints *= 2;
     if (winnerColor === 'black') blackEssence += 1; else whiteEssence += 1;
+    updateEssenceDisplay();
   }
 
   if (winnerColor === "black") {
@@ -854,6 +873,12 @@ function endRound() {
 
   if (roundNumber > 3) {
     // Game ends after 3 rounds
+    let winner = null;
+    if (blackScore > whiteScore) winner = 'black';
+    else if (whiteScore > blackScore) winner = 'white';
+    if (winner === 'black') blackEssence += 1;
+    else if (winner === 'white') whiteEssence += 1;
+    updateEssenceDisplay();
     gameState = "end";
     drawUI();
   } else {
@@ -1075,6 +1100,7 @@ function unlockTechTreeNode() {
   if (selectedTechTreeNode.isPermanent) {
     applyPermanentEffects();
   }
+  updateEssenceDisplay();
   updateTechTreeInfoDisplay();
   drawTechTree();
 }

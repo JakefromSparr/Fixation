@@ -110,6 +110,11 @@ canvas {
   background-color: #f0f0f0;
 }
 
+#essenceDisplay {
+  margin-top: 10px;
+  font-weight: bold;
+}
+
 #techTreeInfo {
   text-align: center;
   padding: 10px;
