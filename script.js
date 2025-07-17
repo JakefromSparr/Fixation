@@ -206,18 +206,47 @@ const loadedImages = {};
 let imagesLoaded = 0;
 let imagesReady = false;
 
+function createPlaceholderImage(key) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 64;
+  canvas.height = 64;
+  const c = canvas.getContext('2d');
+  const isBlack = key.includes('black');
+  const pipsMatch = key.match(/(\d+)/);
+  const pips = pipsMatch ? pipsMatch[1] : '';
+
+  c.fillStyle = isBlack ? '#000' : '#fff';
+  c.fillRect(0, 0, 64, 64);
+  c.strokeStyle = isBlack ? '#fff' : '#000';
+  c.strokeRect(0, 0, 64, 64);
+  c.fillStyle = isBlack ? '#fff' : '#000';
+  c.font = '32px Arial';
+  c.textAlign = 'center';
+  c.textBaseline = 'middle';
+  c.fillText(pips, 32, 32);
+  return canvas;
+}
+
 function preloadImages(images, callback) {
   const keys = Object.keys(images);
+  const done = () => {
+    imagesLoaded++;
+    if (imagesLoaded === keys.length) {
+      imagesReady = true;
+      callback();
+    }
+  };
   keys.forEach((key) => {
     const img = new Image();
     img.src = images[key];
     img.onload = () => {
       loadedImages[key] = img;
-      imagesLoaded++;
-      if (imagesLoaded === keys.length) {
-        imagesReady = true;
-        callback();
-      }
+      done();
+    };
+    img.onerror = () => {
+      console.warn(`Using placeholder for ${key}`);
+      loadedImages[key] = createPlaceholderImage(key);
+      done();
     };
   });
 }
