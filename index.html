@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#11100e">
-  <meta name="description" content="Fixation: The Alchemic Duel, a two-player abstract strategy game by Sparr Games.">
-  <title>Fixation: The Alchemic Duel</title>
+  <meta name="description" content="Fixation, a two-player abstract tile-placement game by Sparr Games.">
+  <title>Fixation</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -16,10 +16,7 @@
 
     <a class="brand" href="#" aria-label="Fixation home">
       <span class="brand-mark" aria-hidden="true">F</span>
-      <span>
-        <strong>Fixation</strong>
-        <small>The Alchemic Duel</small>
-      </span>
+      <strong>Fixation</strong>
     </a>
 
     <div id="roundBadge" class="round-badge" hidden>
@@ -44,36 +41,26 @@
   <main>
     <section id="setupScreen" class="setup-screen">
       <div class="setup-copy">
-        <p class="eyebrow">Sparr Games presents</p>
         <h1>Fixation</h1>
-        <p class="subtitle">The Alchemic Duel</p>
-        <p class="lede">Build an unstable Formula. Shape its open potency. Place the element that closes every bond.</p>
-
-        <div class="pressure-list" aria-label="The three pressures of Fixation">
-          <div><span>01</span><strong>The Board</strong><small>Control the Formula</small></div>
-          <div><span>02</span><strong>Your Hand</strong><small>Manage the decay</small></div>
-          <div><span>03</span><strong>The Rival</strong><small>Read the threat</small></div>
-        </div>
       </div>
 
       <form id="playerForm" class="setup-card">
         <div class="setup-card-heading">
-          <p class="eyebrow">Begin a duel</p>
-          <h2>Name the alchemists</h2>
+          <h2>Who's playing?</h2>
         </div>
 
         <label class="name-field black-field">
-          <span><i></i> Black Alchemist</span>
+          <span><i></i> Black</span>
           <input id="blackName" name="blackName" type="text" maxlength="24" autocomplete="off" placeholder="Player one" required>
         </label>
 
         <label class="name-field white-field">
-          <span><i></i> White Alchemist</span>
+          <span><i></i> White</span>
           <input id="whiteName" name="whiteName" type="text" maxlength="24" autocomplete="off" placeholder="Player two" required>
         </label>
 
-        <button class="primary-button" type="submit">Enter the laboratory</button>
-        <button id="openRulesFromSetup" class="quiet-button" type="button">Read the rules</button>
+        <button class="primary-button" type="submit">Start game</button>
+        <button id="openRulesFromSetup" class="quiet-button" type="button">Rules</button>
       </form>
     </section>
 
@@ -83,7 +70,7 @@
           <div>
             <span class="color-chip"></span>
             <div>
-              <small>Black Alchemist</small>
+              <small>Black</small>
               <h2 id="blackPlayerName">Black</h2>
             </div>
           </div>
@@ -112,8 +99,8 @@
           <canvas id="gameCanvas" aria-label="Fixation hex board"></canvas>
           <div id="boardEmptyState" class="board-empty-state">
             <span class="empty-sigil">F</span>
-            <strong>The Formula awaits.</strong>
-            <small>Black may contribute the first element at the center.</small>
+            <strong>No tiles placed</strong>
+            <small>Black places the first tile at the center.</small>
           </div>
         </div>
 
@@ -126,7 +113,7 @@
           <div id="actionButtons" class="action-buttons">
             <button id="contributeButton" type="button" data-action="contribute">
               <span class="action-glyph">+</span>
-              <span><strong>Contribute</strong><small>Place one element</small></span>
+              <span><strong>Contribute</strong><small>Place one tile</small></span>
             </button>
             <button id="extractButton" type="button" data-action="extract">
               <span class="action-glyph">↥</span>
@@ -146,7 +133,7 @@
           <div>
             <span class="color-chip"></span>
             <div>
-              <small>White Alchemist</small>
+              <small>White</small>
               <h2 id="whitePlayerName">White</h2>
             </div>
           </div>
@@ -164,37 +151,36 @@
   <dialog id="rulesDialog" class="modal-dialog">
     <div class="dialog-heading">
       <div>
-        <p class="eyebrow">How to play</p>
-        <h2>Current Prototype Rules</h2>
+        <h2>Rules</h2>
       </div>
       <button class="dialog-close icon-button" type="button" data-close-dialog aria-label="Close rules">×</button>
     </div>
     <div class="rules-content">
       <section>
         <h3>Win the round</h3>
-        <p>Place the element that leaves every tile on the board fully bonded. Complete the Formula to claim the round. Win two rounds to win the duel.</p>
+        <p>Place the tile that leaves every tile on the board fully bonded. Complete the Formula to claim the round. Win two rounds to win the game.</p>
       </section>
       <section>
         <h3>Bonding</h3>
         <ol>
-          <li>The first element enters at the center.</li>
-          <li>Every later element must touch at least one tile with open potency.</li>
-          <li>An element cannot touch a fully bonded tile.</li>
+          <li>The first tile enters at the center.</li>
+          <li>Every later tile must touch at least one tile with open potency.</li>
+          <li>A tile cannot touch a fully bonded tile.</li>
           <li>It cannot touch more open neighbors than its potency.</li>
           <li>It bonds automatically with every eligible neighbor.</li>
         </ol>
       </section>
       <section class="rule-actions">
-        <article><strong>Contribute</strong><p>Place an element. Its current potency locks. Every other element in your hand decays by 1.</p></article>
-        <article><strong>Extract</strong><p>Decay your active hand by 1, then place a fresh potency-4 element from your pool into an empty live slot.</p></article>
-        <article><strong>Observe</strong><p>Decay every active element in your hand by 2.</p></article>
+        <article><strong>Contribute</strong><p>Place a tile. Its current potency locks. Every other tile in your hand decays by 1.</p></article>
+        <article><strong>Extract</strong><p>Decay your active hand by 1, then place a fresh potency-4 tile from your pool into an empty live slot.</p></article>
+        <article><strong>Observe</strong><p>Decay every active tile in your hand by 2.</p></article>
       </section>
       <section>
         <h3>Collapse</h3>
-        <p>An element that reaches 0 is lost and collapses its slot permanently. If all three of your slots collapse, you lose the round.</p>
+        <p>A tile that reaches 0 is lost and collapses its slot permanently. If all three of your slots collapse, you lose the round.</p>
       </section>
     </div>
-    <button class="primary-button dialog-done" type="button" data-close-dialog>Return to the duel</button>
+    <button class="primary-button dialog-done" type="button" data-close-dialog>Close</button>
   </dialog>
 
   <dialog id="resultDialog" class="modal-dialog result-dialog">
@@ -209,6 +195,9 @@
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
   <script src="engine.js"></script>
+  <script src="turns.js"></script>
+  <script src="tiles.js"></script>
+  <script src="board-view.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
