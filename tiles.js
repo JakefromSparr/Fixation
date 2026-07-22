@@ -9,97 +9,147 @@
 })(typeof globalThis !== "undefined" ? globalThis : window, function createTiles() {
   "use strict";
 
-  // Potency is the source of truth. Artwork is selected from this catalog whenever
-  // the interface renders, so a decaying tile never has to manage its own image.
-  const ARTWORK = Object.freeze({
+  const POTENCIES = Object.freeze([1, 2, 3, 4]);
+  const HEX_POINTS = "25,2 75,2 99,44 75,86 25,86 1,44";
+  const PALETTE = Object.freeze({
     black: Object.freeze({
-      1: "https://res.cloudinary.com/dyoqz4zeb/image/upload/v1734648919/Fixation.Black1.1_adrb7w.png",
-      2: "https://res.cloudinary.com/dyoqz4zeb/image/upload/v1734648919/Fixation.Black2.1_fqnciy.png",
-      3: "https://res.cloudinary.com/dyoqz4zeb/image/upload/v1734648919/Fixation.Black3.1_xcwdzj.png",
-      4: null,
+      fill: "#261306",
+      edge: "#120902",
+      innerEdge: "rgba(230, 230, 230, 0.16)",
+      pip: "#e6e6e6",
     }),
     white: Object.freeze({
-      1: "https://res.cloudinary.com/dyoqz4zeb/image/upload/v1734648920/Fixation.White1.1_gprwia.png",
-      2: "https://res.cloudinary.com/dyoqz4zeb/image/upload/v1734648919/Fixation.White2.1._uplvln.png",
-      3: "https://res.cloudinary.com/dyoqz4zeb/image/upload/v1734648920/Fixation.White3.1._y63ltf.png",
-      4: null,
+      fill: "#e6e6e6",
+      edge: "#8f8c8c",
+      innerEdge: "rgba(255, 255, 255, 0.9)",
+      pip: "#261306",
     }),
   });
 
-  const loadedImages = new Map();
-  const failedSources = new Set();
-  let preloadStarted = false;
+  // The one-, two-, and three-potency layouts retain the centered vertical
+  // language of the original pieces. Four uses a compact dice-like square.
+  const PIP_LAYOUTS = Object.freeze({
+    1: Object.freeze([[0, 0]]),
+    2: Object.freeze([[0, -0.22], [0, 0.22]]),
+    3: Object.freeze([[0, -0.34], [0, 0], [0, 0.34]]),
+    4: Object.freeze([[-0.22, -0.22], [0.22, -0.22], [-0.22, 0.22], [0.22, 0.22]]),
+  });
 
-  function keyFor(color, potency) {
-    return `${color}:${potency}`;
+  function validColor(color) {
+    return Object.prototype.hasOwnProperty.call(PALETTE, color);
   }
 
-  function sourceFor(color, potency) {
-    return ARTWORK[color]?.[potency] || null;
+  function validPotency(potency) {
+    return POTENCIES.includes(Number(potency));
   }
 
-  function imageFor(tile) {
-    if (!tile) return null;
-    return loadedImages.get(keyFor(tile.color, tile.potency)) || null;
+  function paletteFor(color) {
+    return PALETTE[validColor(color) ? color : "black"];
   }
 
-  function hasArtwork(color, potency) {
-    return Boolean(sourceFor(color, potency));
-  }
-
-  function preload(onUpdate = () => {}) {
-    if (preloadStarted || typeof Image === "undefined") return;
-    preloadStarted = true;
-
-    for (const color of Object.keys(ARTWORK)) {
-      for (const potency of [1, 2, 3, 4]) {
-        const source = sourceFor(color, potency);
-        if (!source) continue;
-
-        const image = new Image();
-        image.decoding = "async";
-        image.onload = () => {
-          loadedImages.set(keyFor(color, potency), image);
-          onUpdate();
-        };
-        image.onerror = () => {
-          failedSources.add(source);
-          onUpdate();
-        };
-        image.src = source;
-      }
-    }
+  function pipsFor(potency) {
+    return PIP_LAYOUTS[Number(potency)] || [];
   }
 
   function handArtwork(tile) {
-    const image = imageFor(tile);
-    if (!image) {
-      return `<strong aria-hidden="true">${tile.potency}</strong>`;
-    }
+    if (!tile || !validColor(tile.color) || !validPotency(tile.potency)) return "";
 
-    const source = sourceFor(tile.color, tile.potency);
-    return `<img class="tile-art" src="${source}" alt="${tile.color} potency-${tile.potency} element">`;
+    const palette = paletteFor(tile.color);
+    const pips = pipsFor(tile.potency).map(([horizontal, vertical]) => {
+      const cx = 50 + horizontal * 84;
+      const cy = 44 + vertical * 84;
+      return `<circle class="tile-pip" cx="${cx}" cy="${cy}" r="5.5" fill="${palette.pip}"/>`;
+    }).join("");
+
+    return [
+      `<svg class="tile-art" viewBox="0 0 100 88" role="img" aria-label="${tile.color} potency ${tile.potency} tile" data-color="${tile.color}" data-potency="${tile.potency}">`,
+      `<polygon points="${HEX_POINTS}" fill="${palette.fill}" stroke="${palette.edge}" stroke-width="2.5" stroke-linejoin="round"/>`,
+      `<polyline points="26.5,6 73.5,6 94.5,44" fill="none" stroke="${palette.innerEdge}" stroke-width="1.4" stroke-linecap="round"/>`,
+      pips,
+      "</svg>",
+    ].join("");
+  }
+
+  function traceHex(context, x, y, radius) {
+    context.beginPath();
+    for (let index = 0; index < 6; index += 1) {
+      const angle = (Math.PI / 3) * index;
+      const pointX = x + radius * Math.cos(angle);
+      const pointY = y + radius * Math.sin(angle);
+      if (index === 0) context.moveTo(pointX, pointY);
+      else context.lineTo(pointX, pointY);
+    }
+    context.closePath();
   }
 
   function drawArtwork(context, tile, x, y, size) {
-    const image = imageFor(tile);
-    if (!image) return false;
-    context.drawImage(image, x - size / 2, y - size / 2, size, size);
+    if (!context || !tile || !validColor(tile.color) || !validPotency(tile.potency)) {
+      return false;
+    }
+
+    const palette = paletteFor(tile.color);
+    const radius = size / 2 - 2;
+
+    context.save();
+    traceHex(context, x, y, radius);
+    context.fillStyle = palette.fill;
+    context.fill();
+    context.strokeStyle = palette.edge;
+    context.lineWidth = 2.2;
+    context.lineJoin = "round";
+    context.stroke();
+
+    context.beginPath();
+    context.moveTo(x - radius * 0.46, y - radius * 0.78);
+    context.lineTo(x + radius * 0.46, y - radius * 0.78);
+    context.lineTo(x + radius * 0.9, y);
+    context.strokeStyle = palette.innerEdge;
+    context.lineWidth = 1;
+    context.lineCap = "round";
+    context.stroke();
+
+    context.fillStyle = palette.pip;
+    const pipRadius = Math.max(3.1, radius * 0.11);
+    for (const [horizontal, vertical] of pipsFor(tile.potency)) {
+      context.beginPath();
+      context.arc(
+        x + horizontal * radius * 1.714,
+        y + vertical * radius * Math.sqrt(3),
+        pipRadius,
+        0,
+        Math.PI * 2,
+      );
+      context.fill();
+    }
+    context.restore();
     return true;
   }
 
-  function missingArtwork() {
-    return ["black", "white"].flatMap((color) => (
-      [1, 2, 3, 4]
-        .filter((potency) => !hasArtwork(color, potency))
-        .map((potency) => ({ color, potency }))
-    ));
+  // Compatibility shims for older interface code. Tiles are now procedural,
+  // so there is no remote source to preload or image object to cache.
+  function sourceFor() {
+    return null;
   }
 
+  function imageFor() {
+    return null;
+  }
+
+  function hasArtwork(color, potency) {
+    return validColor(color) && validPotency(potency);
+  }
+
+  function missingArtwork() {
+    return [];
+  }
+
+  function preload() {}
+
   return Object.freeze({
-    ARTWORK,
+    PALETTE,
+    PIP_LAYOUTS,
+    POTENCIES,
     drawArtwork,
-    failedSources,
     handArtwork,
     hasArtwork,
     imageFor,
