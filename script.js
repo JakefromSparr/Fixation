@@ -178,11 +178,11 @@
   function actionMessage(result, player) {
     let message;
     if (result.action === "observe") {
-      message = `${player.name} observes. Every active element decays by 2.`;
+      message = `${player.name} observes. Every active tile decays by 2.`;
     } else if (result.action === "extract") {
-      message = `${player.name} extracts a fresh potency-4 element.`;
+      message = `${player.name} extracts a fresh potency-4 tile.`;
     } else {
-      message = `${player.name} contributes a potency-${result.potency} element.`;
+      message = `${player.name} contributes a potency-${result.potency} tile.`;
     }
 
     const collapsed = result.collapsedIndices.length;
@@ -197,8 +197,8 @@
     const loser = state.players[Turns.opponentColor(result.winnerColor)];
 
     if (result.matchComplete) {
-      elements.resultEyebrow.textContent = "Duel complete";
-      elements.resultTitle.textContent = `${winner.name} wins the duel`;
+      elements.resultEyebrow.textContent = "Game complete";
+      elements.resultTitle.textContent = `${winner.name} wins the game`;
       elements.resultDescription.textContent = result.reason === "formula"
         ? `${winner.name} completes the deciding Formula and claims a second round.`
         : `${loser.name}'s final hand slot collapses. ${winner.name} claims the deciding round.`;
@@ -207,7 +207,7 @@
       elements.resultEyebrow.textContent = "Formula complete";
       elements.resultTitle.textContent = result.formula?.name || "Unnamed Formula";
       elements.resultDescription.textContent = result.formula?.description
-        || `${winner.name} places the final possible element and claims round ${state.round}.`;
+        || `${winner.name} places the final possible tile and claims round ${state.round}.`;
       elements.resultContinueButton.textContent = "Begin the next round";
     } else {
       elements.resultEyebrow.textContent = "Hand collapsed";
@@ -217,7 +217,7 @@
     }
 
     elements.resultStats.innerHTML = [
-      [result.tileCount, "Elements"],
+      [result.tileCount, "Tiles"],
       [result.value, "Total potency"],
       [result.turns, "Turns"],
     ].map(([value, label]) => (
@@ -300,8 +300,7 @@
       if (slot.status === "collapsed") {
         content = '<div class="mini-tile"><strong>×</strong></div><span class="slot-copy"><strong>Collapsed</strong><small>This slot is permanently lost.</small></span>';
       } else if (slot.tile) {
-        const artClass = Tiles.imageFor(slot.tile) ? " has-art" : "";
-        content = `<div class="mini-tile${artClass}">${Tiles.handArtwork(slot.tile)}</div><span class="slot-copy"><strong>Potency ${slot.tile.potency}</strong><small>${isCurrent ? "Select to contribute" : "Active element"}</small></span>`;
+        content = `<div class="mini-tile has-art">${Tiles.handArtwork(slot.tile)}</div><span class="slot-copy"><strong>Potency ${slot.tile.potency}</strong><small>${isCurrent ? "Select to contribute" : "Active tile"}</small></span>`;
       } else {
         content = `<div class="mini-tile"><strong>·</strong></div><span class="slot-copy"><strong>Empty slot</strong><small>${targetable ? "Extract here" : "Available for extraction"}</small></span>`;
       }
@@ -352,14 +351,14 @@
 
     if (interaction.pendingAction === "contribute") {
       elements.turnInstruction.textContent = interaction.selectedSlot === null
-        ? "Choose an element from your hand."
+        ? "Choose a tile from your hand."
         : "Choose a glowing space on the Formula.";
       elements.turnDetail.textContent = interaction.selectedSlot === null
         ? "Its current potency will lock when placed."
-        : `${interaction.legalSpaces.length} legal placement${interaction.legalSpaces.length === 1 ? "" : "s"}. Other active elements will decay by 1.`;
+        : `${interaction.legalSpaces.length} legal placement${interaction.legalSpaces.length === 1 ? "" : "s"}. Other active tiles will decay by 1.`;
     } else if (interaction.pendingAction === "extract") {
       elements.turnInstruction.textContent = "Choose an empty live slot.";
-      elements.turnDetail.textContent = "Your active hand decays by 1 before the fresh potency-4 element enters.";
+      elements.turnDetail.textContent = "Your active hand decays by 1 before the fresh potency-4 tile enters.";
     } else if (!Turns.canContribute(state, player)
       && !Turns.canExtract(player)
       && !Turns.hasActiveTile(player)) {
@@ -367,7 +366,7 @@
       elements.turnDetail.textContent = "The current prototype needs an exhaustion ruling for this edge case.";
     } else {
       elements.turnInstruction.textContent = "Choose one action.";
-      elements.turnDetail.textContent = "Contribute to the Formula, extract a fresh element, or observe your hand decay.";
+      elements.turnDetail.textContent = "Contribute to the Formula, extract a fresh tile, or observe your hand decay.";
     }
   }
 
@@ -392,20 +391,20 @@
 
   function saveGame() {
     if (state.phase === "setup") {
-      showToast("Start a duel before saving.");
+      showToast("Start a game before saving.");
       closeMenu();
       return;
     }
     localStorage.setItem(SAVE_KEY, JSON.stringify({ state }));
     closeMenu();
-    showToast("Duel saved on this device.");
+    showToast("Game saved on this device.");
   }
 
   function loadGame() {
     const saved = localStorage.getItem(SAVE_KEY);
     closeMenu();
     if (!saved) {
-      showToast("No saved duel was found.");
+      showToast("No saved game was found.");
       return;
     }
 
@@ -415,7 +414,7 @@
       interaction = createInteraction();
       render();
       if (state.phase === "round-end" && state.roundResult) showResultDialog();
-      showToast("Saved duel loaded.");
+      showToast("Saved game loaded.");
     } catch (error) {
       console.error(error);
       showToast("That save could not be loaded.");
@@ -425,7 +424,7 @@
   function requestNewGame() {
     closeMenu();
     if (state.phase !== "setup"
-      && !window.confirm("End this duel and return to the title screen?")) return;
+      && !window.confirm("End this game and return to the title screen?")) return;
     returnToSetup();
   }
 
