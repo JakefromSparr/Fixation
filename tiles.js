@@ -9,7 +9,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : window, function createTiles() {
   "use strict";
 
-  const POTENCIES = Object.freeze([1, 2, 3, 4]);
+  const POTENCIES = Object.freeze([1, 2, 3, 4, 5]);
   const HEX_POINTS = "25,2 75,2 99,44 75,86 25,86 1,44";
   const PALETTE = Object.freeze({
     black: Object.freeze({
@@ -33,6 +33,7 @@
     2: Object.freeze([[0, -0.22], [0, 0.22]]),
     3: Object.freeze([[0, -0.34], [0, 0], [0, 0.34]]),
     4: Object.freeze([[-0.22, -0.22], [0.22, -0.22], [-0.22, 0.22], [0.22, 0.22]]),
+    5: Object.freeze([[-0.24, -0.24], [0.24, -0.24], [0, 0], [-0.24, 0.24], [0.24, 0.24]]),
   });
 
   function validColor(color) {
