@@ -5,7 +5,7 @@ Fixation is a two-player abstract strategy game by Sparr Games. Players build on
 ## Current rules
 
 - Each player has a pool of 9 tiles and 3 hand slots.
-- Fresh tiles normally enter at potency 4.
+- Fresh tiles normally enter at potency 3. Elevation raises them to 4 and Quintessence raises them to 5.
 - Black begins round one. The starting player alternates in later rounds.
 - The base actions are Contribute, Extract, and Forfeit.
 - A round ends only when a player Forfeits. The opponent claims the Formula.
@@ -14,11 +14,11 @@ Fixation is a two-player abstract strategy game by Sparr Games. Players build on
 - Only a completely fulfilled Formula can receive a cataloged or player-created name.
 - A game is best of 3 rounds, a match is best of 3 games, and a session is best of 3 matches.
 - Formula points remain provisional until a player wins the game, unless Discovery protects the points immediately.
-- The game winner may buy one shared skill between games or retain the points.
+- The game winner may buy any number of affordable shared skills between games or retain the points.
 
 ### Base actions
 
-- **Contribute:** Place a tile. Its potency locks and every other active tile in that hand decays by 1.
+- **Contribute:** Place a tile. Its potency locks and the active hand decays by 1.
 - **Extract:** Decay every active tile in that hand by 1, then move a fresh tile from the pool into an empty live slot.
 - **Forfeit:** Concede the round. If no other action is legal, Forfeit is the only available base action.
 
@@ -36,28 +36,31 @@ where `p` is the placed element's potency and `k` is the number of bonds it form
 
 ## Shared skill tree
 
-`skilltree.js` is the declarative source for names, costs, prerequisites, replacements, descriptions, and use limits. Purchased skills apply to both players for the rest of the session.
+`skilltree.js` is the declarative source for names, costs, prerequisites, replacements, descriptions, and use limits. Discovery is the shared root. Purchased skills apply to both players for the rest of the session.
 
 ### Hand branch
 
 - Refine
   - Stagnate
-    - Observe, which replaces Refine
+    - Observe
     - Energize
     - Flagrate, which requires Observe and Energize
   - Circulate
-    - Fulfill, which replaces Circulate
+    - Fulfill
     - Revitalize
     - Reanimate, which requires Fulfill and Revitalize
+  - Catalysis
+  - Fixation
 
 ### Formula branch
 
 - Discovery
-  - Reclamation
-    - Exclusion, currently visible but not purchasable until its side-locking rule is defined
-  - Dulcification
-    - Quintessence
-  - Emanation, which requires and replaces Reclamation and Dulcification
+  - Elevation
+    - Acerbation
+      - Reclamation
+    - Dulcification
+      - Quintessence
+  - Emanation, which integrates Acerbation, Reclamation, Dulcification, and Quintessence
     - Transmutation
     - Manipulation
     - Activation, which requires Transmutation and Manipulation

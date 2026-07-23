@@ -178,3 +178,15 @@ test("the canonical catalog includes Distillation and Fixation", () => {
   ]));
   assert.equal(Engine.recognizeFormula(fixation)?.name, "Fixation");
 });
+
+test("Formula signatures ignore translation, rotation, reflection, and color", () => {
+  const first = {
+    "0,0": { id: "a", color: "black", potency: 2, q: 0, r: 0 },
+    "1,0": { id: "b", color: "white", potency: 1, q: 1, r: 0 },
+  };
+  const transformed = {
+    "4,-2": { id: "c", color: "white", potency: 2, q: 4, r: -2 },
+    "4,-1": { id: "d", color: "black", potency: 1, q: 4, r: -1 },
+  };
+  assert.equal(Engine.formulaSignature(first), Engine.formulaSignature(transformed));
+});

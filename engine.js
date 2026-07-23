@@ -195,6 +195,46 @@
       .join(":");
   }
 
+  function formulaSignature(board) {
+    const tiles = occupiedTiles(board);
+    if (!tiles.length) return "";
+
+    function rotate([x, y, z]) {
+      return [-z, -x, -y];
+    }
+
+    function serialize(points) {
+      const axial = points.map(({ cube, potency }) => ({
+        q: cube[0],
+        r: cube[2],
+        potency,
+      }));
+      const minQ = Math.min(...axial.map(({ q }) => q));
+      const minR = Math.min(...axial.map(({ r }) => r));
+      return axial
+        .map(({ q, r, potency }) => `${q - minQ},${r - minR},${potency}`)
+        .sort()
+        .join("|");
+    }
+
+    const base = tiles.map((tile) => ({
+      cube: [tile.q, -tile.q - tile.r, tile.r],
+      potency: tile.potency,
+    }));
+    const variants = [];
+    for (const reflected of [false, true]) {
+      let points = base.map(({ cube, potency }) => ({
+        cube: reflected ? [cube[0], cube[2], cube[1]] : [...cube],
+        potency,
+      }));
+      for (let turn = 0; turn < 6; turn += 1) {
+        variants.push(serialize(points));
+        points = points.map(({ cube, potency }) => ({ cube: rotate(cube), potency }));
+      }
+    }
+    return variants.sort()[0];
+  }
+
   function recognizeFormula(board) {
     if (!isFormulaComplete(board)) return null;
     const code = valenceCode(board);
@@ -333,6 +373,14 @@
     return tile;
   }
 
+  function decreaseTilePotency(board, key) {
+    const tile = board[key];
+    if (!tile || tile.potency <= 1 || tile.remainingPotency <= 0) return null;
+    tile.potency -= 1;
+    tile.remainingPotency -= 1;
+    return tile;
+  }
+
   function decaySlots(slots, amount) {
     if (!Array.isArray(slots) || !Number.isInteger(amount) || amount < 1) {
       throw new Error("Decay requires a slot array and a positive integer amount.");
@@ -370,8 +418,10 @@
     coordinatesOf,
     createTile,
     decaySlots,
+    decreaseTilePotency,
     edgeCount,
     formulaValue,
+    formulaSignature,
     hasLegalMove,
     increaseTilePotency,
     isBoardConnected,

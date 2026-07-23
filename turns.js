@@ -21,14 +21,10 @@
     roundLimit: Progression.RULES.maximumRounds,
     roundsToWin: Progression.RULES.roundsToWinGame,
     startingPool: 9,
-    freshPotency: 4,
+    freshPotency: 3,
     slotCount: 3,
     poolTileCost: 6,
   });
-
-  const AUTOMATIC_DECAY_ACTIONS = Object.freeze([
-    "contribute", "extract", "refine", "circulate", "fulfill",
-  ]);
 
   function createIdleState() {
     return {
@@ -51,6 +47,7 @@
       skillsEnabled: true,
       pendingPurchase: null,
       pendingManipulation: null,
+      catalysis: null,
       nextTileNumber: 0,
     };
   }
@@ -85,6 +82,7 @@
     state.lastMove = null;
     state.roundResult = null;
     state.pendingManipulation = null;
+    state.catalysis = null;
 
     for (const player of Object.values(state.players)) {
       player.pool = (player.poolCapacity || RULES.startingPool) - 1;
@@ -102,7 +100,9 @@
   }
 
   function maximumPotency(state) {
-    return hasSkill(state, "quintessence") ? 5 : 4;
+    if (hasSkill(state, "quintessence")) return 5;
+    if (hasSkill(state, "elevation")) return 4;
+    return RULES.freshPotency;
   }
 
   function defaultExtractionPotency(state) {
@@ -225,13 +225,29 @@
   }
 
   function reanimateTargets(state, player = currentPlayer(state)) {
-    if (!hasSkill(state, "reanimate") || SkillTree.isSpent(player, "reanimate")) return [];
+    if (!hasSkill(state, "reanimate") || player.pool < 1 || player.poolCapacity < 2) return [];
     return SkillTree.ORDER.filter((id) => (
       id !== "reanimate"
       && SkillTree.isEffective(state.skills, id)
       && SkillTree.SKILLS[id].useLimit
       && SkillTree.isSpent(player, id)
     ));
+  }
+
+  function canCatalyze(state, player) {
+    return hasSkill(state, "catalysis")
+      && !SkillTree.isSpent(player, "catalysis")
+      && !state.catalysis
+      && player.pool > 0
+      && player.poolCapacity > 1;
+  }
+
+  function canAcerbate(state, player) {
+    return hasSkill(state, "acerbation")
+      && !SkillTree.isSpent(player, "acerbation")
+      && Engine.occupiedTiles(state.board).some((tile) => (
+        tile.potency > 1 && tile.remainingPotency > 0
+      ));
   }
 
   function canDulcify(state, player) {
@@ -266,18 +282,32 @@
     if (canFulfill(state, player)) actions.push("fulfill");
     if (hasSkill(state, "stagnate")
       && !SkillTree.isSpent(player, "stagnate")
-      && actions.some((action) => AUTOMATIC_DECAY_ACTIONS.includes(action))) {
+      && actions.length) {
       actions.push("stagnate");
     }
     if (canEnergize(state, player)) actions.push("energize");
     if (canFlagrate(state, player)) actions.push("flagrate");
     if (canRevitalize(state, player)) actions.push("revitalize");
     if (reanimateTargets(state, player).length) actions.push("reanimate");
+    if (canCatalyze(state, player)) actions.push("catalysis");
+    if (canAcerbate(state, player)) actions.push("acerbation");
     if (canDulcify(state, player)) actions.push("dulcification");
     if (canManipulate(state)) actions.push("manipulation");
 
+    if (state.catalysis?.playerColor === player.color) {
+      const used = new Set(state.catalysis.actions);
+      for (let index = actions.length - 1; index >= 0; index -= 1) {
+        if (used.has(actions[index]) || actions[index] === "stagnate"
+          || actions[index] === "catalysis") {
+          actions.splice(index, 1);
+        }
+      }
+    }
     const nonForfeit = [...actions];
     if (!hasSkill(state, "emanation") || nonForfeit.length === 0) actions.push("forfeit");
+    if (state.catalysis?.playerColor === player.color && nonForfeit.length) {
+      return actions.filter((action) => action !== "forfeit");
+    }
     return actions;
   }
 
@@ -303,13 +333,33 @@
     return { slots: player.slots, collapsedIndices: [] };
   }
 
-  function automaticDecay(player, amount) {
+  function automaticDecay(state, player, amount) {
+    if (hasSkill(state, "fixation")) {
+      player.stagnatePrimed = false;
+      return { slots: player.slots, collapsedIndices: [], fixed: true, stagnated: false };
+    }
     if (player.stagnatePrimed) {
       player.stagnatePrimed = false;
       SkillTree.spendUse(player, "stagnate");
       return { slots: player.slots, collapsedIndices: [], stagnated: true };
     }
     return { ...decayPlayer(player, amount), stagnated: false };
+  }
+
+  function endTurnDecay(state, player) {
+    if (state.catalysis?.playerColor === player.color
+      && state.catalysis.actions.length === 0) {
+      return emptyDecay();
+    }
+    return automaticDecay(state, player, 1);
+  }
+
+  function mergeDecay(...results) {
+    return {
+      collapsedIndices: [...new Set(results.flatMap((result) => result.collapsedIndices || []))],
+      stagnated: results.some((result) => result.stagnated),
+      fixed: results.some((result) => result.fixed),
+    };
   }
 
   function performContribute(state, slotIndex, q, r) {
@@ -337,7 +387,7 @@
     if (transmuting) Engine.transmuteTile(state.board, placedTile, q, r);
     else Engine.placeTile(state.board, placedTile, q, r);
     sourceSlot.tile = null;
-    const decay = automaticDecay(player, 1);
+    const decay = endTurnDecay(state, player);
     const newOpenPotency = Engine.openPotency(state.board);
     state.lastMove = {
       player: player.color,
@@ -381,7 +431,7 @@
     }
     const potencies = extractionPotencies(state, 1, requestedPotency);
     if (!potencies) return failed("Choose a legal extraction potency.");
-    const decay = automaticDecay(player, 1);
+    const decay = endTurnDecay(state, player);
     player.slots[slotIndex].tile = createHandTile(state, player.color, potencies[0]);
     player.pool -= 1;
     const result = actionResult("extract", player.color, decay, { potencies });
@@ -393,7 +443,7 @@
     if (state.phase !== "playing") return failed("The round is not active.");
     const player = currentPlayer(state);
     if (!canCirculate(state, player)) return failed("Circulate requires two empty live slots.");
-    return performMultiExtract(state, player, "circulate", 2, requestedPotencies);
+    return performMultiExtract(state, player, "circulate", 2, requestedPotencies, true);
   }
 
   function performFulfill(state, requestedPotencies) {
@@ -406,17 +456,28 @@
       "fulfill",
       emptyLiveSlotIndices(player).length,
       requestedPotencies,
+      false,
     );
   }
 
-  function performMultiExtract(state, player, action, count, requestedPotencies) {
+  function performMultiExtract(state, player, action, count, requestedPotencies, drawBeforeDecay) {
     const potencies = extractionPotencies(state, count, requestedPotencies);
     if (!potencies) return failed("Choose a legal potency for every extracted tile.");
     const targets = emptyLiveSlotIndices(player).slice(0, count);
-    const decay = automaticDecay(player, 1);
-    targets.forEach((slotIndex, index) => {
-      player.slots[slotIndex].tile = createHandTile(state, player.color, potencies[index]);
-    });
+    let decay;
+    if (drawBeforeDecay) {
+      targets.forEach((slotIndex, index) => {
+        player.slots[slotIndex].tile = createHandTile(state, player.color, potencies[index]);
+      });
+      decay = endTurnDecay(state, player);
+    } else {
+      decay = endTurnDecay(state, player);
+      targets.forEach((slotIndex, index) => {
+        if (player.slots[slotIndex]?.status === "live" && !player.slots[slotIndex].tile) {
+          player.slots[slotIndex].tile = createHandTile(state, player.color, potencies[index]);
+        }
+      });
+    }
     player.pool -= count;
     const result = actionResult(action, player.color, decay, { potencies, targets });
     finishAction(state, result);
@@ -431,7 +492,7 @@
     const slot = player.slots[slotIndex];
     if (!slot?.tile) return failed("Choose an active hand tile.");
     const targetedDecay = decaySingleSlot(player, slotIndex, 1);
-    const automatic = automaticDecay(player, 1);
+    const automatic = endTurnDecay(state, player);
     const decay = {
       collapsedIndices: [...new Set([
         ...targetedDecay.collapsedIndices,
@@ -449,7 +510,7 @@
       return failed("Observe is not available.");
     }
     const player = currentPlayer(state);
-    const decay = decayPlayer(player, 2);
+    const decay = mergeDecay(decayPlayer(player, 2), endTurnDecay(state, player));
     const result = actionResult("observe", player.color, decay);
     finishAction(state, result);
     return result;
@@ -475,7 +536,7 @@
     if (!tile || tile.potency >= maximum) return failed("Choose a tile below maximum potency.");
     tile.potency = Math.min(maximum, tile.potency + 2);
     SkillTree.spendUse(player, "energize");
-    const result = actionResult("energize", player.color, emptyDecay(), {
+    const result = actionResult("energize", player.color, endTurnDecay(state, player), {
       slotIndex,
       potency: tile.potency,
     });
@@ -489,7 +550,10 @@
       return failed("Flagrate is not available.");
     }
     const targetColor = opponentColor(player.color);
-    const decay = decayPlayer(state.players[targetColor], 1);
+    const decay = mergeDecay(
+      decayPlayer(state.players[targetColor], 1),
+      endTurnDecay(state, player),
+    );
     SkillTree.spendUse(player, "flagrate");
     const result = actionResult("flagrate", player.color, decay, { targetColor });
     finishAction(state, result);
@@ -519,10 +583,34 @@
     if (!SkillTree.restoreUse(player, targetSkillId)) {
       return failed("That action cannot be restored.");
     }
-    SkillTree.spendUse(player, "reanimate");
-    const result = actionResult("reanimate", player.color, emptyDecay(), { targetSkillId });
+    burnPoolTile(player);
+    const result = actionResult("reanimate", player.color, endTurnDecay(state, player), {
+      targetSkillId,
+      poolCapacity: player.poolCapacity,
+    });
     finishAction(state, result);
     return result;
+  }
+
+  function performCatalysis(state) {
+    const player = currentPlayer(state);
+    if (state.phase !== "playing" || !canCatalyze(state, player)) {
+      return failed("Catalysis is not available.");
+    }
+    burnPoolTile(player);
+    SkillTree.spendUse(player, "catalysis");
+    state.catalysis = { playerColor: player.color, actions: [] };
+    return {
+      ok: true,
+      action: "catalysis",
+      intermediate: true,
+      poolCapacity: player.poolCapacity,
+    };
+  }
+
+  function burnPoolTile(player) {
+    player.pool -= 1;
+    player.poolCapacity -= 1;
   }
 
   function performDulcification(state, key) {
@@ -539,7 +627,30 @@
       oldOpenPotency: Engine.openPotency(state.board) - 1,
       newOpenPotency: Engine.openPotency(state.board),
     };
-    const result = actionResult("dulcification", player.color, emptyDecay(), {
+    const result = actionResult("dulcification", player.color, endTurnDecay(state, player), {
+      key,
+      potency: tile.potency,
+    });
+    finishAction(state, result);
+    return result;
+  }
+
+  function performAcerbation(state, key) {
+    const player = currentPlayer(state);
+    if (state.phase !== "playing" || !canAcerbate(state, player)) {
+      return failed("Acerbation is not available.");
+    }
+    const oldOpenPotency = Engine.openPotency(state.board);
+    const tile = Engine.decreaseTilePotency(state.board, key);
+    if (!tile) return failed("Choose a board tile with open potency.");
+    SkillTree.spendUse(player, "acerbation");
+    state.lastMove = {
+      player: player.color,
+      action: "acerbation",
+      oldOpenPotency,
+      newOpenPotency: Engine.openPotency(state.board),
+    };
+    const result = actionResult("acerbation", player.color, endTurnDecay(state, player), {
       key,
       potency: tile.potency,
     });
@@ -622,15 +733,25 @@
   }
 
   function finishAction(state, result) {
-    const player = state.players[result.playerColor];
-    if (player.stagnatePrimed && !AUTOMATIC_DECAY_ACTIONS.includes(result.action)) {
-      player.stagnatePrimed = false;
-    }
     if (result.action === "contribute" && Engine.isFormulaComplete(state.board)) {
       endRound(state, result.playerColor, opponentColor(result.playerColor), "formula-complete");
       result.roundEnded = true;
       result.roundResult = state.roundResult;
       return;
+    }
+    if (state.catalysis?.playerColor === result.playerColor) {
+      if (state.catalysis.actions.includes(result.action)) return;
+      state.catalysis.actions.push(result.action);
+      if (state.catalysis.actions.length < 2) {
+        result.intermediate = true;
+        return;
+      }
+      if (result.action === "revitalize") {
+        const decay = automaticDecay(state, state.players[result.playerColor], 1);
+        result.collapsedIndices = decay.collapsedIndices;
+        result.stagnated = decay.stagnated;
+      }
+      state.catalysis = null;
     }
     advanceTurn(state);
   }
@@ -715,17 +836,23 @@
   }
 
   function createFormulaRecord(state, winnerColor, formula, fulfilled, details) {
+    const signature = Engine.formulaSignature(state.board);
+    const remembered = !formula
+      ? state.formulas.find((record) => record.signature === signature && record.name)
+      : null;
     return {
       id: `formula-${state.formulas.length + 1}`,
-      name: formula?.name || "",
+      name: formula?.name || remembered?.name || "",
       catalogName: formula?.name || null,
       description: formula?.description || "",
       valenceCode: Engine.valenceCode(state.board),
       edgeCount: Engine.edgeCount(state.board),
+      signature,
       value: details.value,
       tileCount: details.tileCount,
       fulfilled,
       completedBy: winnerColor,
+      discoveredBy: formula ? null : (remembered?.discoveredBy || remembered?.completedBy || null),
       match: state.match,
       game: state.game,
       round: state.round,
@@ -737,9 +864,11 @@
     if (!record) return failed("There is no claimed Formula to name.");
     if (!record.fulfilled) return failed("Only a fully fulfilled Formula can be named.");
     if (record.catalogName) return failed("Named Formulas cannot be renamed.");
+    if (record.name && record.discoveredBy) return failed("This Formula already has a session name.");
     const cleanName = String(name || "").trim().slice(0, 40);
     if (!cleanName) return failed("Enter a name for this Formula.");
     record.name = cleanName;
+    record.discoveredBy = record.completedBy;
     return { ok: true, formulaRecord: record };
   }
 
@@ -847,6 +976,7 @@
       state.board = state.pendingManipulation.originalBoard;
     }
     state.pendingManipulation = null;
+    state.catalysis = null;
     for (const player of Object.values(state.players)) {
       Progression.ensurePlayerProgress(player);
       player.poolCapacity = Number.isInteger(player.poolCapacity)
@@ -896,6 +1026,7 @@
     availableActions,
     beginRound,
     canContribute,
+    canAcerbate,
     canDulcify,
     canExtract,
     canForfeit,
@@ -917,7 +1048,9 @@
     normalizeLoadedState,
     opponentColor,
     performCirculate,
+    performCatalysis,
     performContribute,
+    performAcerbation,
     performDulcification,
     performEnergize,
     performExtract,

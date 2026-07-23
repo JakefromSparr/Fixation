@@ -13,14 +13,16 @@
     extract: { glyph: "↥", name: "Extract", detail: "Decay 1, then draw" },
     forfeit: { glyph: "×", name: "Forfeit", detail: "Concede the round" },
     refine: { glyph: "⌄", name: "Refine", detail: "Target -1, then hand -1" },
-    observe: { glyph: "◉", name: "Observe", detail: "Decay hand by 2" },
+    observe: { glyph: "◉", name: "Observe", detail: "Decay hand by 2, then normal decay" },
     circulate: { glyph: "↟", name: "Circulate", detail: "Extract two tiles" },
     fulfill: { glyph: "⇈", name: "Fulfill", detail: "Fill every live slot" },
     stagnate: { glyph: "□", name: "Stagnate", detail: "Prevent this turn's decay" },
     energize: { glyph: "↑", name: "Energize", detail: "Add 2 to one hand tile" },
     flagrate: { glyph: "↓", name: "Flagrate", detail: "Decay rival hand by 1" },
     revitalize: { glyph: "◇", name: "Revitalize", detail: "Restore one slot" },
-    reanimate: { glyph: "↶", name: "Reanimate", detail: "Restore one used action" },
+    reanimate: { glyph: "↶", name: "Reanimate", detail: "Burn a pool tile; restore an action" },
+    catalysis: { glyph: "✦", name: "Catalysis", detail: "Burn a pool tile; take two actions" },
+    acerbation: { glyph: "▽", name: "Acerbation", detail: "Remove 1 from a board tile" },
     dulcification: { glyph: "△", name: "Dulcification", detail: "Add 1 to a board tile" },
     manipulation: { glyph: "↔", name: "Manipulation", detail: "Move, then Contribute" },
   });
@@ -155,6 +157,13 @@
 
     if (action === "observe") return completeAction(Turns.performObserve(state));
     if (action === "flagrate") return completeAction(Turns.performFlagrate(state));
+    if (action === "catalysis") {
+      const result = Turns.performCatalysis(state);
+      if (!result.ok) return showToast(result.message);
+      showToast("Catalysis active. Choose two different actions.");
+      render();
+      return;
+    }
     if (action === "stagnate") {
       const result = Turns.toggleStagnate(state);
       if (!result.ok) return showToast(result.message);
@@ -186,7 +195,7 @@
       return openChoice({
         eyebrow: "Reanimate",
         title: "Restore which action?",
-        description: "The selected once-per-game action becomes available one more time.",
+        description: "Permanently burn one pool tile to restore the selected single-use action.",
         options: targets.map((id) => ({ value: id, label: SkillTree.SKILLS[id].name })),
         onChoose: (id) => completeAction(Turns.performReanimate(state, id)),
       });
@@ -195,6 +204,7 @@
     interaction = createInteraction();
     interaction.pendingAction = action;
     if (action === "dulcification") interaction.boardTargets = dulcificationTargets();
+    if (action === "acerbation") interaction.boardTargets = acerbationTargets();
     if (action === "manipulation") interaction.boardTargets = manipulationTargets();
     boardView.clearHover();
     render();
@@ -255,6 +265,10 @@
       if (!interaction.boardTargets.includes(key)) return;
       return completeAction(Turns.performDulcification(state, key));
     }
+    if (interaction.pendingAction === "acerbation") {
+      if (!interaction.boardTargets.includes(key)) return;
+      return completeAction(Turns.performAcerbation(state, key));
+    }
 
     if (interaction.pendingAction === "manipulation") {
       if (!interaction.manipulationFrom) {
@@ -309,11 +323,12 @@
       circulate: `${player.name} circulates two fresh tiles.`,
       fulfill: `${player.name} fulfills every empty live slot.`,
       refine: `${player.name} refines one hand tile.`,
-      observe: `${player.name} observes the hand. Every active tile decays by 2.`,
+      observe: `${player.name} observes the hand, then normal decay follows.`,
       energize: `${player.name} energizes a hand tile to potency ${result.potency}.`,
       flagrate: `${player.name} uses Flagrate on the opposing hand.`,
       revitalize: `${player.name} revitalizes a collapsed slot.`,
       reanimate: `${player.name} reanimates ${SkillTree.SKILLS[result.targetSkillId]?.name}.`,
+      acerbation: `${player.name} lowers a board tile to potency ${result.potency}.`,
       dulcification: `${player.name} raises a board tile to potency ${result.potency}.`,
       forfeit: state.roundResult?.drawn
         ? "The open Formula produces a cat's game."
@@ -422,7 +437,9 @@
     elements.formulaNameInput.value = result.formulaRecord?.name || "";
     elements.formulaNameStatus.textContent = result.formulaRecord?.catalogName
       ? `${result.formulaRecord.catalogName} is a fixed named Formula.`
-      : nameable ? "This fulfilled structure may be named." : "";
+      : result.formulaRecord?.name && result.formulaRecord?.discoveredBy
+        ? `Discovered by ${state.players[result.formulaRecord.discoveredBy]?.name || result.formulaRecord.discoveredBy}.`
+        : nameable ? "This fulfilled structure may be named." : "";
     const label = continuationLabel(result);
     elements.resultContinueButton.textContent = label;
     elements.reviewContinueButton.textContent = label;
@@ -789,6 +806,9 @@
     } else if (interaction.pendingAction === "dulcification") {
       elements.turnInstruction.textContent = "Choose a highlighted board tile.";
       elements.turnDetail.textContent = "It gains 1 locked potency and 1 open potency.";
+    } else if (interaction.pendingAction === "acerbation") {
+      elements.turnInstruction.textContent = "Choose a highlighted board tile.";
+      elements.turnDetail.textContent = "It loses 1 open potency.";
     } else if (interaction.pendingAction === "manipulation") {
       elements.turnInstruction.textContent = interaction.manipulationFrom
         ? "Choose a glowing destination."
@@ -821,6 +841,12 @@
     const maximum = Turns.maximumPotency(state);
     return Object.entries(state.board)
       .filter(([, tile]) => tile.potency < maximum)
+      .map(([key]) => key);
+  }
+
+  function acerbationTargets() {
+    return Object.entries(state.board)
+      .filter(([, tile]) => tile.potency > 1 && tile.remainingPotency > 0)
       .map(([key]) => key);
   }
 

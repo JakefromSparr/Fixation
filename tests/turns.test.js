@@ -27,15 +27,15 @@ test("a duel begins with one fresh element, two empty slots, and base actions on
   const state = Turns.startGame("Ada", "Bryn");
   assert.equal(state.currentPlayer, "black");
   assert.equal(state.players.black.pool, 8);
-  assert.deepEqual(state.players.black.slots.map((slot) => slot.tile?.potency || null), [4, null, null]);
+  assert.deepEqual(state.players.black.slots.map((slot) => slot.tile?.potency || null), [3, null, null]);
   assert.deepEqual(Turns.availableActions(state), ["contribute", "extract", "forfeit"]);
 });
 
-test("Extract decays active elements before adding a fresh potency-4 element", () => {
+test("Extract decays active elements before adding a fresh potency-3 element", () => {
   const state = Turns.startGame("Ada", "Bryn");
   const result = Turns.performExtract(state, 1);
   assert.equal(result.ok, true);
-  assert.deepEqual(state.players.black.slots.map((slot) => slot.tile?.potency || null), [3, 4, null]);
+  assert.deepEqual(state.players.black.slots.map((slot) => slot.tile?.potency || null), [2, 3, null]);
   assert.equal(state.players.black.pool, 7);
   assert.equal(state.currentPlayer, "white");
 });
@@ -140,8 +140,8 @@ test("a game winner may purchase multiple Discoveries before finishing", () => {
   assert.equal(state.roundResult.gameComplete, true);
   assert.equal(state.pendingPurchase.buyerColor, "white");
   assert.equal(Turns.continueFromResult(state).ok, false);
-  assert.equal(Turns.purchaseSkill(state, "refine").ok, true);
   assert.equal(Turns.purchaseSkill(state, "discovery").ok, true);
+  assert.equal(Turns.purchaseSkill(state, "refine").ok, true);
   assert.equal(state.skills.discovered.includes("refine"), true);
   assert.equal(state.skills.discovered.includes("discovery"), true);
   assert.equal(state.pendingPurchase.resolved, false);
@@ -172,14 +172,14 @@ test("either player may buy one permanent pool tile per between-game window", ()
   assert.equal(state.players.white.pool, 9);
 });
 
-test("Observe replaces Refine and both act without ending the round", () => {
+test("Observe and Refine remain independently available", () => {
   const state = Turns.startGame("Ada", "Bryn");
   enable(state, "refine", "observe");
   state.players.black.slots[0].tile.potency = 4;
-  assert.equal(Turns.availableActions(state).includes("refine"), false);
+  assert.equal(Turns.availableActions(state).includes("refine"), true);
   assert.equal(Turns.availableActions(state).includes("observe"), true);
   Turns.performObserve(state);
-  assert.equal(state.players.black.slots[0].tile.potency, 2);
+  assert.equal(state.players.black.slots[0].tile.potency, 1);
 });
 
 test("Refine applies targeted decay and then normal end-turn decay to the full hand", () => {
@@ -203,16 +203,16 @@ test("Stagnate prevents one automatic hand decay and is then spent", () => {
   assert.equal(Turns.toggleStagnate(state).primed, true);
   const result = Turns.performExtract(state, 1);
   assert.equal(result.stagnated, true);
-  assert.equal(state.players.black.slots[0].tile.potency, 4);
+  assert.equal(state.players.black.slots[0].tile.potency, 3);
   assert.equal(SkillTree.isSpent(state.players.black, "stagnate"), true);
 });
 
-test("Energize, Flagrate, Revitalize, and Reanimate obey per-game use limits", () => {
+test("actions apply normal decay while Revitalize does not", () => {
   const state = Turns.startGame("Ada", "Bryn");
   enable(state, "energize", "flagrate", "revitalize", "reanimate");
   state.players.black.slots[0].tile.potency = 2;
   Turns.performEnergize(state, 0);
-  assert.equal(state.players.black.slots[0].tile.potency, 4);
+  assert.equal(state.players.black.slots[0].tile.potency, 2);
 
   state.currentPlayer = "black";
   const before = state.players.white.slots[0].tile.potency;
@@ -228,20 +228,30 @@ test("Energize, Flagrate, Revitalize, and Reanimate obey per-game use limits", (
   assert.ok(Turns.reanimateTargets(state).includes("energize"));
   Turns.performReanimate(state, "energize");
   assert.equal(SkillTree.isSpent(state.players.black, "energize"), false);
-  assert.equal(SkillTree.isSpent(state.players.black, "reanimate"), true);
+  assert.equal(state.players.black.poolCapacity, 8);
   assert.equal(Turns.reanimateTargets(state).includes("reanimate"), false);
 });
 
-test("Fulfill replaces Circulate and fills every empty live slot", () => {
+test("Circulate draws before decay while Fulfill decays before drawing", () => {
   const state = Turns.startGame("Ada", "Bryn");
   enable(state, "circulate", "fulfill");
-  assert.equal(Turns.availableActions(state).includes("circulate"), false);
+  assert.equal(Turns.availableActions(state).includes("circulate"), true);
   assert.equal(Turns.availableActions(state).includes("fulfill"), true);
-  Turns.performFulfill(state);
-  assert.deepEqual(state.players.black.slots.map((slot) => slot.tile?.potency), [3, 4, 4]);
+  Turns.performCirculate(state);
+  assert.deepEqual(state.players.black.slots.map((slot) => slot.tile?.potency), [2, 2, 2]);
+
+  const fulfilled = Turns.startGame("Ada", "Bryn");
+  enable(fulfilled, "fulfill");
+  Turns.performFulfill(fulfilled);
+  assert.deepEqual(fulfilled.players.black.slots.map((slot) => slot.tile?.potency), [2, 3, 3]);
 });
 
 test("Quintessence extracts potency 5 and Activation selects any available potency", () => {
+  const elevation = Turns.startGame("Ada", "Bryn");
+  enable(elevation, "elevation");
+  Turns.performExtract(elevation, 1);
+  assert.equal(elevation.players.black.slots[1].tile.potency, 4);
+
   const quintessence = Turns.startGame("Ada", "Bryn");
   enable(quintessence, "quintessence");
   Turns.performExtract(quintessence, 1);
@@ -255,9 +265,99 @@ test("Quintessence extracts potency 5 and Activation selects any available poten
   assert.equal(Turns.performExtract(activation, 2, 6).ok, false);
 });
 
+test("Reanimate is repeatable and permanently burns one pool tile per use", () => {
+  const state = Turns.startGame("Ada", "Bryn");
+  enable(state, "energize", "stagnate", "reanimate");
+  state.players.black.skillUses.energize = 1;
+  const capacity = state.players.black.poolCapacity;
+  const pool = state.players.black.pool;
+  assert.equal(Turns.performReanimate(state, "energize").ok, true);
+  assert.equal(state.players.black.poolCapacity, capacity - 1);
+  assert.equal(state.players.black.pool, pool - 1);
+  state.currentPlayer = "black";
+  state.players.black.skillUses.stagnate = 1;
+  assert.equal(Turns.performReanimate(state, "stagnate").ok, true);
+  assert.equal(state.players.black.poolCapacity, capacity - 2);
+});
+
+test("Catalysis burns a pool tile and grants two different actions with one final decay", () => {
+  const state = Turns.startGame("Ada", "Bryn");
+  enable(state, "catalysis", "energize");
+  state.players.black.slots[0].tile.potency = 1;
+  assert.equal(Turns.performCatalysis(state).ok, true);
+  assert.equal(state.players.black.poolCapacity, 8);
+  Turns.performExtract(state, 1);
+  assert.equal(state.currentPlayer, "black");
+  assert.equal(Turns.availableActions(state).includes("extract"), false);
+  Turns.performEnergize(state, 0);
+  assert.equal(state.currentPlayer, "white");
+  assert.deepEqual(
+    state.players.black.slots.map((slot) => slot.tile?.potency || null),
+    [2, 2, null],
+  );
+});
+
+test("Fixation prevents normal end-turn decay", () => {
+  const state = Turns.startGame("Ada", "Bryn");
+  enable(state, "fixation", "energize");
+  state.players.black.slots[0].tile.potency = 1;
+  Turns.performExtract(state, 1);
+  assert.deepEqual(
+    state.players.black.slots.map((slot) => slot.tile?.potency || null),
+    [1, 3, null],
+  );
+});
+
+test("Acerbation removes one open potency and still ends with hand decay", () => {
+  const state = Turns.startGame("Ada", "Bryn");
+  enable(state, "acerbation");
+  Engine.placeTile(state.board, Engine.createTile({ id: "open", color: "white", potency: 3 }), 0, 0);
+  const result = Turns.performAcerbation(state, "0,0");
+  assert.equal(result.ok, true);
+  assert.equal(state.board["0,0"].potency, 2);
+  assert.equal(state.board["0,0"].remainingPotency, 2);
+  assert.equal(state.players.black.slots[0].tile.potency, 2);
+});
+
+test("custom Formula names and discoverers return for equivalent structures", () => {
+  const state = Turns.startGame("Ada", "Bryn");
+  const first = Object.fromEntries([
+    [0, 0, 1], [1, 0, 2], [2, 0, 2], [3, 0, 1],
+  ].map(([q, r, potency], index) => [
+    Engine.keyOf(q, r),
+    {
+      id: `custom-${index}`,
+      color: index % 2 ? "white" : "black",
+      potency,
+      remainingPotency: 0,
+      q,
+      r,
+    },
+  ]));
+  state.board = first;
+  state.currentPlayer = "black";
+  Turns.performForfeit(state);
+  assert.equal(Turns.nameCurrentFormula(state, "The Vessel").ok, true);
+  const signature = state.formulas[0].signature;
+
+  Turns.continueFromResult(state);
+  state.board = Object.fromEntries(
+    Object.entries(first).map(([key, tile]) => {
+      const q = tile.q + 3;
+      const r = tile.r - 2;
+      return [Engine.keyOf(q, r), { ...tile, q, r, color: tile.color === "black" ? "white" : "black" }];
+    }),
+  );
+  state.currentPlayer = "black";
+  Turns.performForfeit(state);
+  assert.equal(state.roundResult.formulaRecord.signature, signature);
+  assert.equal(state.roundResult.formulaRecord.name, "The Vessel");
+  assert.equal(state.roundResult.formulaRecord.discoveredBy, "white");
+});
+
 test("Dulcification raises one board tile and Transmutation replaces by one", () => {
   const state = Turns.startGame("Ada", "Bryn");
-  enable(state, "dulcification", "transmutation");
+  enable(state, "elevation", "dulcification", "transmutation");
   state.players.black.slots[0].tile.potency = 3;
   Turns.performContribute(state, 0, 0, 0);
   state.currentPlayer = "black";
