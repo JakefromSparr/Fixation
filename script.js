@@ -12,7 +12,7 @@
     contribute: { glyph: "+", name: "Contribute", detail: "Place or transmute" },
     extract: { glyph: "↥", name: "Extract", detail: "Decay 1, then draw" },
     forfeit: { glyph: "×", name: "Forfeit", detail: "Concede the round" },
-    refine: { glyph: "⌄", name: "Refine", detail: "Decay one tile by 1" },
+    refine: { glyph: "⌄", name: "Refine", detail: "Target -1, then hand -1" },
     observe: { glyph: "◉", name: "Observe", detail: "Decay hand by 2" },
     circulate: { glyph: "↟", name: "Circulate", detail: "Extract two tiles" },
     fulfill: { glyph: "⇈", name: "Fulfill", detail: "Fill every live slot" },
@@ -75,6 +75,7 @@
       "resultContinueButton", "roundReviewActions", "reopenResultButton",
       "reviewContinueButton", "skillTreeDialog", "skillTreeStatus", "skillTreeColumns",
       "closeSkillTreeButton", "skipSkillPurchaseButton", "finishSkillTreeButton",
+      "poolPurchaseActions", "blackPoolPurchaseButton", "whitePoolPurchaseButton",
       "choiceDialog", "choiceEyebrow", "choiceTitle", "choiceDescription",
       "choiceButtons", "cancelChoiceButton", "toast",
     ];
@@ -118,6 +119,8 @@
     elements.closeSkillTreeButton.addEventListener("click", closeSkillTree);
     elements.finishSkillTreeButton.addEventListener("click", finishSkillTree);
     elements.skipSkillPurchaseButton.addEventListener("click", skipSkillPurchase);
+    elements.blackPoolPurchaseButton.addEventListener("click", () => purchasePoolTile("black"));
+    elements.whitePoolPurchaseButton.addEventListener("click", () => purchasePoolTile("white"));
     elements.cancelChoiceButton.addEventListener("click", closeChoice);
     elements.choiceDialog.addEventListener("cancel", (event) => {
       event.preventDefault();
@@ -384,7 +387,7 @@
     } else if (result.gameComplete) {
       elements.resultEyebrow.textContent = "Game complete";
       elements.resultTitle.textContent = `${winner.name} wins the game`;
-      elements.resultDescription.textContent = `${winner.name} banks ${result.bankedPoints} point${result.bankedPoints === 1 ? "" : "s"} from this round and may purchase one shared Discovery. ${result.discardedPoints} unsecured opposing point${result.discardedPoints === 1 ? "" : "s"} are lost.`;
+      elements.resultDescription.textContent = `${winner.name} banks ${result.bankedPoints} point${result.bankedPoints === 1 ? "" : "s"} from this round and may purchase shared Discoveries. ${result.discardedPoints} unsecured opposing point${result.discardedPoints === 1 ? "" : "s"} are lost.`;
     } else if (result.drawn) {
       elements.resultEyebrow.textContent = "Cat's game";
       elements.resultTitle.textContent = "The Formula remains open";
@@ -395,7 +398,11 @@
         || (result.fulfilled ? "Unnamed Formula" : "Unfulfilled Formula");
       elements.resultEyebrow.textContent = result.fulfilled ? "Formula fulfilled" : "Formula claimed";
       elements.resultTitle.textContent = formulaName;
-      elements.resultDescription.textContent = `${forfeiting.name} forfeits. ${winner.name} claims round ${state.round} and scores ${result.formulaPoints} point${result.formulaPoints === 1 ? "" : "s"}.`;
+      const victory = result.reason === "formula-complete"
+        ? `${winner.name} closes every potency and wins round ${state.round}`
+        : `${forfeiting.name} forfeits. ${winner.name} claims round ${state.round}`;
+      const bonus = result.discoveryBonus ? ` First discovery doubles ${result.baseValue} pips to ${result.formulaPoints}.` : "";
+      elements.resultDescription.textContent = `${victory}, scoring ${result.formulaPoints} point${result.formulaPoints === 1 ? "" : "s"}.${bonus}`;
     }
 
     elements.resultStats.innerHTML = [
@@ -406,13 +413,15 @@
       `<div><strong>${value}</strong><span>${label}</span></div>`
     )).join("");
     renderResultScoreboard();
-    const nameable = Boolean(result.formulaRecord?.fulfilled);
+    const nameable = Boolean(
+      result.formulaRecord?.fulfilled && !result.formulaRecord.catalogName,
+    );
     elements.formulaNameForm.hidden = !nameable;
     elements.observeFormulaButton.hidden = result.tileCount === 0;
     elements.endSessionButton.hidden = !result.gameComplete || result.sessionComplete;
     elements.formulaNameInput.value = result.formulaRecord?.name || "";
     elements.formulaNameStatus.textContent = result.formulaRecord?.catalogName
-      ? `Cataloged as ${result.formulaRecord.catalogName}.`
+      ? `${result.formulaRecord.catalogName} is a fixed named Formula.`
       : nameable ? "This fulfilled structure may be named." : "";
     const label = continuationLabel(result);
     elements.resultContinueButton.textContent = label;
@@ -441,9 +450,7 @@
       return;
     }
     elements.formulaNameInput.value = result.formulaRecord.name;
-    elements.formulaNameStatus.textContent = result.formulaRecord.catalogName
-      ? `Nickname saved. Cataloged as ${result.formulaRecord.catalogName}.`
-      : "Name saved for this session.";
+    elements.formulaNameStatus.textContent = "Name saved for this session.";
     if (!state.roundResult.gameComplete) elements.resultTitle.textContent = result.formulaRecord.name;
     showToast(`${result.formulaRecord.name} recorded.`);
   }
@@ -462,7 +469,7 @@
   function continuationLabel(result) {
     if (result.sessionComplete) return "Return to title";
     if (result.gameComplete && state.pendingPurchase && !state.pendingPurchase.resolved) {
-      return "Choose a Discovery";
+      return "Open discoveries";
     }
     if (result.matchComplete) return "Begin the next match";
     if (result.gameComplete) return "Begin the next game";
@@ -514,19 +521,20 @@
     const pending = state.pendingPurchase;
     const buyer = pending ? state.players[pending.buyerColor] : null;
     if (pending && !pending.resolved) {
-      elements.skillTreeStatus.textContent = `${buyer.name} has ${buyer.bankedPoints} banked points and may add one shared Discovery.`;
-      elements.finishSkillTreeButton.textContent = "Return to summary";
+      const purchasedCount = pending.purchasedSkillIds?.length || 0;
+      elements.skillTreeStatus.textContent = `${buyer.name} has ${buyer.bankedPoints} banked points and may add any affordable shared Discoveries.${purchasedCount ? ` ${purchasedCount} purchased this window.` : ""}`;
+      elements.finishSkillTreeButton.textContent = "Finish purchases";
     } else if (pending?.resolved) {
-      const purchased = pending.purchasedSkillId
-        ? SkillTree.SKILLS[pending.purchasedSkillId].name
-        : "No Discovery";
-      elements.skillTreeStatus.textContent = `${purchased} selected. Banked points and every discovered rule carry into the next game.`;
+      const purchased = (pending.purchasedSkillIds || [])
+        .map((id) => SkillTree.SKILLS[id].name);
+      elements.skillTreeStatus.textContent = `${purchased.length ? purchased.join(", ") : "No new Discovery"} selected. Banked points and every discovered rule carry into the next game.`;
       elements.finishSkillTreeButton.textContent = continuationLabel(state.roundResult);
     } else {
       elements.skillTreeStatus.textContent = `${state.skills.discovered.length} shared Discover${state.skills.discovered.length === 1 ? "y" : "ies"} active in this session.`;
       elements.finishSkillTreeButton.textContent = "Close";
     }
     elements.skipSkillPurchaseButton.hidden = !pending || pending.resolved;
+    renderPoolPurchases(pending);
 
     elements.skillTreeColumns.innerHTML = ["hand", "formula"].map((domain) => {
       const title = domain === "hand" ? "Hand" : "Formula";
@@ -574,6 +582,31 @@
     renderSkillTree();
   }
 
+  function renderPoolPurchases(pending) {
+    const purchasing = Boolean(pending && !pending.resolved);
+    elements.poolPurchaseActions.hidden = !purchasing;
+    for (const color of ["black", "white"]) {
+      const player = state.players[color];
+      const button = color === "black"
+        ? elements.blackPoolPurchaseButton
+        : elements.whitePoolPurchaseButton;
+      const purchased = pending?.poolPurchases?.includes(color);
+      button.textContent = purchased
+        ? `${player.name}: pool increased to ${player.poolCapacity}`
+        : `${player.name}: add pool tile for 6`;
+      button.disabled = !purchasing || purchased || player.bankedPoints < 6;
+    }
+  }
+
+  function purchasePoolTile(color) {
+    const result = Turns.purchasePoolTile(state, color);
+    if (!result.ok) return showToast(result.message);
+    showToast(`${result.player.name} adds a permanent tile to their pool.`);
+    render();
+    renderResultScoreboard();
+    renderSkillTree();
+  }
+
   function skipSkillPurchase() {
     const result = Turns.skipSkillPurchase(state);
     if (!result.ok) return showToast(result.message);
@@ -583,6 +616,10 @@
   }
 
   function finishSkillTree() {
+    if (state.pendingPurchase && !state.pendingPurchase.resolved) {
+      const result = Turns.skipSkillPurchase(state);
+      if (!result.ok) return showToast(result.message);
+    }
     if (state.pendingPurchase?.resolved) {
       finalizeContinuation();
       return;
@@ -742,7 +779,7 @@
       elements.turnDetail.textContent = "Your active hand decays by 1 before the fresh tile enters.";
     } else if (interaction.pendingAction === "refine") {
       elements.turnInstruction.textContent = "Choose a hand tile to Refine.";
-      elements.turnDetail.textContent = "The selected tile decays by 1.";
+      elements.turnDetail.textContent = "The selected tile decays by 1, then every active tile decays by 1.";
     } else if (interaction.pendingAction === "energize") {
       elements.turnInstruction.textContent = "Choose a hand tile to Energize.";
       elements.turnDetail.textContent = "The selected tile gains 2 potency, up to the current maximum.";

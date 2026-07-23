@@ -26,6 +26,7 @@
       gamePoints: 0,
       securedGamePoints: 0,
       bankedPoints: 0,
+      poolCapacity: 9,
       skillUses: {},
       stagnatePrimed: false,
     };

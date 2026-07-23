@@ -1267,14 +1267,20 @@ button.hand-slot:hover:not(:disabled) {
   cursor: pointer;
 }
 
-.skill-tree-footer {
-  display: grid;
-  grid-template-columns: 1fr auto;
+    .skill-tree-footer {
+      display: grid;
+      grid-template-columns: 1fr auto;
   gap: 0.75rem;
   align-items: center;
   padding-top: 1rem;
   border-top: 1px solid var(--line);
-}
+    }
+
+    .pool-purchase-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.55rem;
+    }
 
 .skill-tree-footer .quiet-button {
   justify-self: start;

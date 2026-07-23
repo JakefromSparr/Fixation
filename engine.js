@@ -23,31 +23,43 @@
       name: "Calcination",
       valenceCode: "1:1",
       edgeCount: 1,
-      description: "Two volatile elements exhaust one another in a single bond.",
+      description: "Burning raw matter into ash: releasing ego, pride, and attachment to appearances.",
     }),
     Object.freeze({
       name: "Dissolution",
       valenceCode: "2:2:2",
       edgeCount: 3,
-      description: "Three balanced elements close into a complete triangular bond.",
+      description: "Dissolving ash into liquid: entering the unconscious and releasing buried emotion.",
     }),
     Object.freeze({
       name: "Separation",
       valenceCode: "1:1:1:3",
       edgeCount: 3,
-      description: "Three spent elements radiate from a volatile center.",
+      description: "Filtering waste from essence: isolating the true self through honest analysis.",
     }),
     Object.freeze({
       name: "Conjunction",
       valenceCode: "2:2:3:3",
       edgeCount: 5,
-      description: "Four elements lock into a dense paired structure.",
+      description: "Uniting purified opposites: joining intellect and intuition into a whole.",
     }),
     Object.freeze({
       name: "Fermentation",
       valenceCode: "1:1:2:3:3",
       edgeCount: 5,
-      description: "A five-element arch closes around a single internal cycle.",
+      description: "Introducing new life through decay: passing through darkness into spiritual rebirth.",
+    }),
+    Object.freeze({
+      name: "Distillation",
+      valenceCode: "2:2:2:2:4",
+      edgeCount: 6,
+      description: "Boiling and condensing repeatedly: purifying the mind through contemplation.",
+    }),
+    Object.freeze({
+      name: "Fixation",
+      valenceCode: "2:2:2:2:2:2",
+      edgeCount: 6,
+      description: "Solidifying purified matter: achieving a permanent state of self-actualization.",
     }),
   ]);
 

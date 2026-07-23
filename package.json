@@ -1,0 +1,8 @@
+{
+  "name": "fixation",
+  "version": "0.3.0",
+  "private": true,
+  "scripts": {
+    "test": "node --test tests/*.test.js && node --check engine.js && node --check skilltree.js && node --check progression.js && node --check turns.js && node --check tiles.js && node --check board-view.js && node --check script.js"
+  }
+}

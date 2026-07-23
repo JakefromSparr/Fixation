@@ -23,10 +23,11 @@
     startingPool: 9,
     freshPotency: 4,
     slotCount: 3,
+    poolTileCost: 6,
   });
 
   const AUTOMATIC_DECAY_ACTIONS = Object.freeze([
-    "contribute", "extract", "circulate", "fulfill",
+    "contribute", "extract", "refine", "circulate", "fulfill",
   ]);
 
   function createIdleState() {
@@ -86,7 +87,7 @@
     state.pendingManipulation = null;
 
     for (const player of Object.values(state.players)) {
-      player.pool = RULES.startingPool - 1;
+      player.pool = (player.poolCapacity || RULES.startingPool) - 1;
       player.slots = createStartingSlots(state, player.color);
       player.stagnatePrimed = false;
     }
@@ -429,7 +430,15 @@
     const player = currentPlayer(state);
     const slot = player.slots[slotIndex];
     if (!slot?.tile) return failed("Choose an active hand tile.");
-    const decay = decaySingleSlot(player, slotIndex, 1);
+    const targetedDecay = decaySingleSlot(player, slotIndex, 1);
+    const automatic = automaticDecay(player, 1);
+    const decay = {
+      collapsedIndices: [...new Set([
+        ...targetedDecay.collapsedIndices,
+        ...automatic.collapsedIndices,
+      ])],
+      stagnated: automatic.stagnated,
+    };
     const result = actionResult("refine", player.color, decay, { slotIndex });
     finishAction(state, result);
     return result;
@@ -617,6 +626,12 @@
     if (player.stagnatePrimed && !AUTOMATIC_DECAY_ACTIONS.includes(result.action)) {
       player.stagnatePrimed = false;
     }
+    if (result.action === "contribute" && Engine.isFormulaComplete(state.board)) {
+      endRound(state, result.playerColor, opponentColor(result.playerColor), "formula-complete");
+      result.roundEnded = true;
+      result.roundResult = state.roundResult;
+      return;
+    }
     advanceTurn(state);
   }
 
@@ -631,12 +646,20 @@
     });
   }
 
-  function endRound(state, winnerColor, forfeitingColor) {
+  function endRound(state, winnerColor, forfeitingColor, reason = "forfeit") {
     state.phase = "round-end";
     const formula = Engine.recognizeFormula(state.board);
     const fulfilled = Engine.isFormulaComplete(state.board);
+    const newlyDiscovered = Boolean(
+      formula && !state.discoveredFormulas.includes(formula.name),
+    );
+    const discoveryBonus = newlyDiscovered && hasSkill(state, "discovery");
+    const baseValue = scoreFormula(state);
     const formulaDetails = {
-      value: scoreFormula(state),
+      value: discoveryBonus ? baseValue * 2 : baseValue,
+      baseValue,
+      discoveryBonus,
+      newlyDiscovered,
       tileCount: Engine.occupiedTiles(state.board).length,
       turns: state.turn,
       secure: Boolean(formula && hasSkill(state, "discovery")),
@@ -644,7 +667,7 @@
     const progress = Progression.recordRound(
       state,
       winnerColor,
-      "forfeit",
+      reason,
       formulaDetails,
     );
     const formulaRecord = formulaDetails.tileCount
@@ -657,7 +680,7 @@
     state.roundResult = {
       winnerColor,
       forfeitingColor,
-      reason: "forfeit",
+      reason,
       formula,
       fulfilled,
       formulaRecord,
@@ -668,7 +691,8 @@
       state.pendingPurchase = {
         buyerColor: winnerColor,
         resolved: false,
-        purchasedSkillId: null,
+        purchasedSkillIds: [],
+        poolPurchases: [],
       };
     }
   }
@@ -712,6 +736,7 @@
     const record = state.roundResult?.formulaRecord;
     if (!record) return failed("There is no claimed Formula to name.");
     if (!record.fulfilled) return failed("Only a fully fulfilled Formula can be named.");
+    if (record.catalogName) return failed("Named Formulas cannot be renamed.");
     const cleanName = String(name || "").trim().slice(0, 40);
     if (!cleanName) return failed("Enter a name for this Formula.");
     record.name = cleanName;
@@ -727,8 +752,8 @@
       game: state.game,
     });
     if (!result.ok) return result;
-    pending.resolved = true;
-    pending.purchasedSkillId = id;
+    pending.purchasedSkillIds = pending.purchasedSkillIds || [];
+    pending.purchasedSkillIds.push(id);
     return result;
   }
 
@@ -738,6 +763,30 @@
     }
     state.pendingPurchase.resolved = true;
     return { ok: true };
+  }
+
+  function purchasePoolTile(state, color) {
+    const pending = state.pendingPurchase;
+    if (!pending || pending.resolved) return failed("No between-game purchase is pending.");
+    const player = state.players[color];
+    if (!player) return failed("Choose a player.");
+    pending.poolPurchases = pending.poolPurchases || [];
+    if (pending.poolPurchases.includes(color)) {
+      return failed(`${player.name} already added a pool tile this window.`);
+    }
+    if (player.bankedPoints < RULES.poolTileCost) {
+      return failed(`${player.name} needs ${RULES.poolTileCost - player.bankedPoints} more banked points.`);
+    }
+    player.bankedPoints -= RULES.poolTileCost;
+    player.poolCapacity = (player.poolCapacity || RULES.startingPool) + 1;
+    pending.poolPurchases.push(color);
+    return {
+      ok: true,
+      color,
+      player,
+      cost: RULES.poolTileCost,
+      poolCapacity: player.poolCapacity,
+    };
   }
 
   function continueFromResult(state) {
@@ -800,6 +849,9 @@
     state.pendingManipulation = null;
     for (const player of Object.values(state.players)) {
       Progression.ensurePlayerProgress(player);
+      player.poolCapacity = Number.isInteger(player.poolCapacity)
+        ? player.poolCapacity
+        : RULES.startingPool;
       player.skillUses = SkillTree.normalizeUses(player.skillUses);
       player.stagnatePrimed = Boolean(player.stagnatePrimed);
     }
@@ -877,6 +929,7 @@
     performReanimate,
     performRefine,
     performRevitalize,
+    purchasePoolTile,
     purchaseSkill,
     reanimateTargets,
     resetSkillUses,

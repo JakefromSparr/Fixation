@@ -190,7 +190,7 @@
         </ol>
       </section>
       <section class="rule-actions">
-        <article><strong>Contribute</strong><p>Place a tile. Its current potency locks. Every other tile in your hand decays by 1.</p></article>
+        <article><strong>Contribute</strong><p>Place a tile. Its current potency locks and your hand decays by 1. Closing every potency wins the round immediately.</p></article>
         <article><strong>Extract</strong><p>Decay your active hand by 1, then place a fresh potency-4 tile from your pool into an empty live slot.</p></article>
         <article><strong>Forfeit</strong><p>Concede the round. If Contribute and Extract are both unavailable, Forfeit is your only base action.</p></article>
       </section>
@@ -200,11 +200,11 @@
       </section>
       <section>
         <h3>Named Formulas</h3>
-        <p>Only a fully fulfilled board can receive a Formula name. Open Formulas may still be claimed, but they are unfulfilled and cannot be cataloged or named.</p>
+        <p>The seven named Formulas retain their canonical names. Other fulfilled structures may receive a session name.</p>
       </section>
       <section>
         <h3>Shared discoveries</h3>
-        <p>The game winner may spend banked points on one skill between games. Every purchased skill changes the rules for both players for the rest of the session.</p>
+        <p>The game winner may buy any number of affordable skills or retain all points. Either player may spend 6 banked points once per between-game window to permanently add one tile to their pool.</p>
       </section>
     </div>
     <button class="primary-button dialog-done" type="button" data-close-dialog>Close</button>
@@ -254,6 +254,10 @@
     </div>
     <div id="skillTreeColumns" class="skill-tree-columns"></div>
     <div class="skill-tree-footer">
+      <div id="poolPurchaseActions" class="pool-purchase-actions" hidden>
+        <button id="blackPoolPurchaseButton" class="quiet-button" type="button"></button>
+        <button id="whitePoolPurchaseButton" class="quiet-button" type="button"></button>
+      </div>
       <button id="skipSkillPurchaseButton" class="quiet-button" type="button" hidden>Retain points</button>
       <button id="finishSkillTreeButton" class="primary-button" type="button">Close</button>
     </div>
