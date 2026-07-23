@@ -49,48 +49,6 @@
       edgeCount: 5,
       description: "A five-element arch closes around a single internal cycle.",
     }),
-    Object.freeze({
-      name: "Calcination Derivative",
-      valenceCode: "1:1:2",
-      edgeCount: 2,
-      description: "A longer linear burn derived from Calcination.",
-    }),
-    Object.freeze({
-      name: "Calcination Derivative",
-      valenceCode: "1:1:2:2",
-      edgeCount: 3,
-      description: "A longer linear burn derived from Calcination.",
-    }),
-    Object.freeze({
-      name: "Calcination Derivative",
-      valenceCode: "1:1:2:2:2",
-      edgeCount: 4,
-      description: "A longer linear burn derived from Calcination.",
-    }),
-    Object.freeze({
-      name: "Dissolution Derivative",
-      valenceCode: "1:2:2:3",
-      edgeCount: 4,
-      description: "A triangular bond carrying one extended element.",
-    }),
-    Object.freeze({
-      name: "Dissolution Derivative",
-      valenceCode: "1:2:2:2:3",
-      edgeCount: 5,
-      description: "A larger structure derived from Dissolution.",
-    }),
-    Object.freeze({
-      name: "Separation Derivative",
-      valenceCode: "1:1:1:2:3",
-      edgeCount: 4,
-      description: "A branching structure derived from Separation.",
-    }),
-    Object.freeze({
-      name: "Conjunction Derivative",
-      valenceCode: "1:2:3:3:3",
-      edgeCount: 6,
-      description: "A dense five-element structure derived from Conjunction.",
-    }),
   ]);
 
   function keyOf(q, r) {
@@ -194,8 +152,11 @@
     return tiles.some((tile) => legalPlacements(board, tile).length > 0);
   }
 
-  function formulaValue(board) {
-    return occupiedTiles(board).reduce((total, tile) => total + tile.potency, 0);
+  function formulaValue(board, options = {}) {
+    const includeOpen = options.includeOpen === true;
+    return occupiedTiles(board).reduce((total, tile) => (
+      includeOpen || tile.remainingPotency === 0 ? total + tile.potency : total
+    ), 0);
   }
 
   function openPotency(board) {
@@ -237,6 +198,129 @@
     );
   }
 
+  function adjacentTileCount(board, tile) {
+    return neighborsOf(tile.q, tile.r)
+      .filter(({ q, r }) => Boolean(board[keyOf(q, r)]))
+      .length;
+  }
+
+  function isBoardConnected(board) {
+    const tiles = occupiedTiles(board);
+    if (tiles.length <= 1) return true;
+    const visited = new Set();
+    const queue = [tiles[0]];
+
+    while (queue.length) {
+      const tile = queue.shift();
+      const key = keyOf(tile.q, tile.r);
+      if (visited.has(key)) continue;
+      visited.add(key);
+      for (const coordinate of neighborsOf(tile.q, tile.r)) {
+        const neighbor = board[keyOf(coordinate.q, coordinate.r)];
+        if (neighbor && !visited.has(keyOf(neighbor.q, neighbor.r))) queue.push(neighbor);
+      }
+    }
+
+    return visited.size === tiles.length;
+  }
+
+  function recomputeRemainingPotency(board) {
+    for (const tile of occupiedTiles(board)) {
+      tile.remainingPotency = tile.potency - adjacentTileCount(board, tile);
+    }
+    return board;
+  }
+
+  function isValidFormulaGraph(board) {
+    const tiles = occupiedTiles(board);
+    return isBoardConnected(board)
+      && tiles.every((tile) => adjacentTileCount(board, tile) <= tile.potency);
+  }
+
+  function isLegalTileMove(board, fromKey, q, r) {
+    const moving = board[fromKey];
+    if (!moving || occupiedTiles(board).length < 2 || board[keyOf(q, r)]) return false;
+    const next = cloneBoard(board);
+    delete next[fromKey];
+    if (!isBoardConnected(next)) return false;
+    next[keyOf(q, r)] = { ...moving, q, r };
+    recomputeRemainingPotency(next);
+    return isValidFormulaGraph(next);
+  }
+
+  function legalTileMoves(board, fromKey) {
+    const moving = board[fromKey];
+    if (!moving || occupiedTiles(board).length < 2) return [];
+    const without = cloneBoard(board);
+    delete without[fromKey];
+    if (!isBoardConnected(without)) return [];
+    const candidates = new Map();
+    for (const tile of occupiedTiles(without)) {
+      for (const coordinate of neighborsOf(tile.q, tile.r)) {
+        const key = keyOf(coordinate.q, coordinate.r);
+        if (!without[key] && isLegalTileMove(board, fromKey, coordinate.q, coordinate.r)) {
+          candidates.set(key, coordinate);
+        }
+      }
+    }
+    return [...candidates.values()];
+  }
+
+  function moveTile(board, fromKey, q, r) {
+    if (!isLegalTileMove(board, fromKey, q, r)) {
+      throw new Error(`Illegal Formula movement from ${fromKey} to ${q},${r}.`);
+    }
+    const moving = board[fromKey];
+    delete board[fromKey];
+    board[keyOf(q, r)] = { ...moving, q, r };
+    return recomputeRemainingPotency(board);
+  }
+
+  function isLegalTransmutation(board, tile, q, r) {
+    const current = board[keyOf(q, r)];
+    if (!current || !tile) return false;
+    const bonds = adjacentTileCount(board, current);
+    return Math.abs(tile.potency - current.potency) === 1
+      && tile.potency >= bonds;
+  }
+
+  function legalTransmutations(board, tile) {
+    if (!tile) return [];
+    return occupiedTiles(board)
+      .filter((current) => isLegalTransmutation(board, tile, current.q, current.r))
+      .map(({ q, r }) => ({ q, r, mode: "transmute" }));
+  }
+
+  function transmuteTile(board, tile, q, r) {
+    if (!isLegalTransmutation(board, tile, q, r)) {
+      throw new Error(`Illegal transmutation at ${q},${r}.`);
+    }
+    const key = keyOf(q, r);
+    const covered = board[key];
+    const bonds = adjacentTileCount(board, covered);
+    const underTiles = [
+      ...(covered.underTiles || []),
+      { ...covered, underTiles: undefined },
+    ];
+    const placed = {
+      ...tile,
+      q,
+      r,
+      remainingPotency: tile.potency - bonds,
+      underTiles,
+    };
+    board[key] = placed;
+    return placed;
+  }
+
+  function increaseTilePotency(board, key, maximum) {
+    const tile = board[key];
+    if (!tile || tile.potency >= maximum) return null;
+    tile.potency += 1;
+    tile.remainingPotency += 1;
+    return tile;
+  }
+
   function decaySlots(slots, amount) {
     if (!Array.isArray(slots) || !Number.isInteger(amount) || amount < 1) {
       throw new Error("Decay requires a slot array and a positive integer amount.");
@@ -269,6 +353,7 @@
   return Object.freeze({
     BASE_FORMULAS,
     DIRECTIONS,
+    adjacentTileCount,
     cloneBoard,
     coordinatesOf,
     createTile,
@@ -276,15 +361,25 @@
     edgeCount,
     formulaValue,
     hasLegalMove,
+    increaseTilePotency,
+    isBoardConnected,
     isFormulaComplete,
     isLegalPlacement,
+    isLegalTileMove,
+    isLegalTransmutation,
+    isValidFormulaGraph,
     keyOf,
     legalPlacements,
+    legalTileMoves,
+    legalTransmutations,
+    moveTile,
     neighborsOf,
     occupiedTiles,
     openPotency,
     placeTile,
+    recomputeRemainingPotency,
     recognizeFormula,
+    transmuteTile,
     valenceCode,
   });
 });
