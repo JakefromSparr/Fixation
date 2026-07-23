@@ -13,6 +13,7 @@
 
   function create(canvas) {
     const context = canvas.getContext("2d");
+    const resizeTarget = canvas.parentElement || canvas;
     let logicalWidth = 0;
     let logicalHeight = 0;
     let offsetX = 0;
@@ -23,7 +24,7 @@
     let hoveredSpace = null;
 
     const resizeObserver = new ResizeObserver(resize);
-    resizeObserver.observe(canvas);
+    resizeObserver.observe(resizeTarget);
 
     function render(nextBoard, nextLegalSpaces = [], nextTargetKeys = []) {
       board = nextBoard;
@@ -33,7 +34,7 @@
     }
 
     function resize() {
-      const rect = canvas.getBoundingClientRect();
+      const rect = resizeTarget.getBoundingClientRect();
       if (rect.width <= 0 || rect.height <= 0) return;
 
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
