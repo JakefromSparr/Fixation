@@ -19,14 +19,16 @@
     let offsetY = 0;
     let board = {};
     let legalSpaces = [];
+    let targetKeys = [];
     let hoveredSpace = null;
 
     const resizeObserver = new ResizeObserver(resize);
     resizeObserver.observe(canvas);
 
-    function render(nextBoard, nextLegalSpaces = []) {
+    function render(nextBoard, nextLegalSpaces = [], nextTargetKeys = []) {
       board = nextBoard;
       legalSpaces = nextLegalSpaces;
+      targetKeys = nextTargetKeys;
       resize();
     }
 
@@ -86,8 +88,9 @@
       context.clearRect(0, 0, logicalWidth, logicalHeight);
       drawGrid();
       drawBonds();
-      drawLegalSpaces();
       for (const tile of Engine.occupiedTiles(board)) drawTile(tile);
+      drawLegalSpaces();
+      drawTargets();
     }
 
     function drawGrid() {
@@ -153,71 +156,53 @@
       context.shadowColor = "rgba(0,0,0,0.48)";
       context.shadowBlur = 13;
       context.shadowOffsetY = 5;
-      const usedArtwork = Tiles.drawArtwork(context, tile, x, y, HEX_RADIUS * 2);
-      if (!usedArtwork) drawGeneratedTile(tile, x, y);
+      if (tile.underTiles?.length) {
+        context.save();
+        context.translate(-4, 5);
+        context.globalAlpha = 0.58;
+        Tiles.drawArtwork(
+          context,
+          tile.underTiles[tile.underTiles.length - 1],
+          x,
+          y,
+          HEX_RADIUS * 2,
+        );
+        context.restore();
+      }
+      Tiles.drawArtwork(context, tile, x, y, HEX_RADIUS * 2);
       context.restore();
 
-      if (usedArtwork) drawRemainingBadge(tile, x, y);
-      else drawPotencyPips(tile, x, y);
+      if (tile.remainingPotency !== tile.potency) drawRemainingBadge(tile, x, y);
     }
 
-    function drawGeneratedTile(tile, x, y) {
-      const isBlack = tile.color === "black";
-      const gradient = context.createRadialGradient(x - 10, y - 12, 3, x, y, HEX_RADIUS);
-      if (isBlack) {
-        gradient.addColorStop(0, "#34312d");
-        gradient.addColorStop(1, "#11100f");
-      } else {
-        gradient.addColorStop(0, "#fffaf0");
-        gradient.addColorStop(1, "#cfc6b8");
+    function drawTargets() {
+      for (const key of targetKeys) {
+        const tile = board[key];
+        if (!tile) continue;
+        const { x, y } = hexToPixel(tile.q, tile.r);
+        context.save();
+        context.strokeStyle = "#efd79a";
+        context.lineWidth = 3;
+        context.setLineDash([4, 4]);
+        traceHex(x, y, HEX_RADIUS + 2);
+        context.stroke();
+        context.restore();
       }
-
-      context.fillStyle = gradient;
-      context.strokeStyle = isBlack ? "#7d6b49" : "#a98d59";
-      context.lineWidth = 2;
-      traceHex(x, y, HEX_RADIUS - 2);
-      context.fill();
-      context.stroke();
-    }
-
-    function drawPotencyPips(tile, x, y) {
-      const positions = {
-        1: [[0, 0]],
-        2: [[-9, 0], [9, 0]],
-        3: [[0, -9], [-9, 8], [9, 8]],
-        4: [[-9, -9], [9, -9], [-9, 9], [9, 9]],
-      }[tile.potency];
-
-      const used = tile.potency - tile.remainingPotency;
-      positions.forEach(([dx, dy], index) => {
-        context.beginPath();
-        context.arc(x + dx, y + dy, 3.3, 0, Math.PI * 2);
-        if (index < used) {
-          context.fillStyle = tile.color === "black" ? "#080808" : "#948a7c";
-          context.strokeStyle = tile.color === "black" ? "#65605a" : "#6e665d";
-          context.lineWidth = 1;
-          context.fill();
-          context.stroke();
-        } else {
-          context.fillStyle = "#d6b66f";
-          context.fill();
-        }
-      });
     }
 
     function drawRemainingBadge(tile, x, y) {
-      const badgeX = x + 21;
-      const badgeY = y + 21;
+      const badgeX = x + 28;
+      const badgeY = y + 24;
       context.save();
       context.beginPath();
-      context.arc(badgeX, badgeY, 9, 0, Math.PI * 2);
+      context.arc(badgeX, badgeY, 8, 0, Math.PI * 2);
       context.fillStyle = tile.color === "black" ? "#11100f" : "#eee7db";
       context.fill();
       context.strokeStyle = "#d6b66f";
       context.lineWidth = 1.5;
       context.stroke();
       context.fillStyle = tile.color === "black" ? "#f6efe2" : "#171512";
-      context.font = "bold 10px Arial, sans-serif";
+      context.font = "bold 9px Arial, sans-serif";
       context.textAlign = "center";
       context.textBaseline = "middle";
       context.fillText(String(tile.remainingPotency), badgeX, badgeY + 0.5);
