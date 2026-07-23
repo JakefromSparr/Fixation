@@ -20,9 +20,9 @@
     </a>
 
     <div id="roundBadge" class="round-badge" hidden>
-      <span>Round</span>
-      <strong id="roundNumberDisplay">1</strong>
-      <small>of 3</small>
+      <span>Match <strong id="matchNumberDisplay">1</strong></span>
+      <span>Game <strong id="gameNumberDisplay">1</strong></span>
+      <span>Round <strong id="roundNumberDisplay">1</strong></span>
     </div>
   </header>
 
@@ -33,8 +33,13 @@
       <button id="closeMenuButton" class="text-button" type="button">Close</button>
     </div>
     <button id="rulesButton" type="button">Rules</button>
-    <button id="saveGameButton" type="button">Save game</button>
-    <button id="loadGameButton" type="button">Load game</button>
+    <button id="skillTreeButton" type="button">Skill tree</button>
+    <button id="saveGameButton" type="button">Save session</button>
+    <button id="loadGameButton" type="button">Load session</button>
+    <label class="menu-toggle" for="skillsToggle">
+      <span><strong>Skills in play</strong><small>Use active skill-tree upgrades</small></span>
+      <input id="skillsToggle" type="checkbox" checked>
+    </label>
     <button id="newGameButton" class="danger-button" type="button">New game</button>
   </nav>
 
@@ -76,6 +81,12 @@
           </div>
           <div class="round-score"><strong id="blackRounds">0</strong><span>rounds</span></div>
         </div>
+        <div class="player-ledger">
+          <span>Formula points <strong id="blackGamePoints">0</strong></span>
+          <span>Bank <strong id="blackBankedPoints">0</strong></span>
+          <span>Games <strong id="blackGames">0</strong></span>
+          <span>Matches <strong id="blackMatches">0</strong></span>
+        </div>
         <div class="player-resources">
           <span>Pool <strong id="blackPool">8</strong></span>
           <span>Live slots <strong id="blackLiveSlots">3</strong></span>
@@ -102,6 +113,13 @@
             <strong>No tiles placed</strong>
             <small>Black places the first tile at the center.</small>
           </div>
+          <aside class="formula-codex" aria-label="Named Formula discoveries">
+            <div>
+              <span class="eyebrow">Discoveries</span>
+              <strong><span id="formulaDiscoveryCount">0</span>/<span id="formulaCatalogCount">0</span></strong>
+            </div>
+            <div id="formulaDiscoveryList" class="formula-discovery-list"></div>
+          </aside>
         </div>
 
         <div class="turn-console">
@@ -110,19 +128,10 @@
             <strong id="turnInstruction">Choose one action.</strong>
             <small id="turnDetail">Each action changes the board or your decaying hand.</small>
           </div>
-          <div id="actionButtons" class="action-buttons">
-            <button id="contributeButton" type="button" data-action="contribute">
-              <span class="action-glyph">+</span>
-              <span><strong>Contribute</strong><small>Place one tile</small></span>
-            </button>
-            <button id="extractButton" type="button" data-action="extract">
-              <span class="action-glyph">↥</span>
-              <span><strong>Extract</strong><small>Decay 1, then draw</small></span>
-            </button>
-            <button id="observeButton" type="button" data-action="observe">
-              <span class="action-glyph">◉</span>
-              <span><strong>Observe</strong><small>Decay hand by 2</small></span>
-            </button>
+          <div id="actionButtons" class="action-buttons"></div>
+          <div id="roundReviewActions" class="round-review-actions" hidden>
+            <button id="reopenResultButton" class="quiet-button" type="button">Round summary</button>
+            <button id="reviewContinueButton" class="primary-button" type="button">Begin the next round</button>
           </div>
           <button id="cancelActionButton" class="quiet-button cancel-action" type="button" hidden>Cancel action</button>
         </div>
@@ -138,6 +147,12 @@
             </div>
           </div>
           <div class="round-score"><strong id="whiteRounds">0</strong><span>rounds</span></div>
+        </div>
+        <div class="player-ledger">
+          <span>Formula points <strong id="whiteGamePoints">0</strong></span>
+          <span>Bank <strong id="whiteBankedPoints">0</strong></span>
+          <span>Games <strong id="whiteGames">0</strong></span>
+          <span>Matches <strong id="whiteMatches">0</strong></span>
         </div>
         <div class="player-resources">
           <span>Pool <strong id="whitePool">8</strong></span>
@@ -158,7 +173,11 @@
     <div class="rules-content">
       <section>
         <h3>Win the round</h3>
-        <p>Place the tile that leaves every tile on the board fully bonded. Complete the Formula to claim the round. Win two rounds to win the game.</p>
+        <p>Force your opponent into a position where they cannot take a legal action. The player who Forfeits loses the round, and the other player claims the Formula. Win two rounds to win the game.</p>
+      </section>
+      <section>
+        <h3>Continue the session</h3>
+        <p>A game is best of 3 rounds. A match is best of 3 games. A session is best of 3 matches. Only fully bonded tiles score by default. The game winner banks their unsecured Formula points and may add one shared Discovery.</p>
       </section>
       <section>
         <h3>Bonding</h3>
@@ -173,28 +192,86 @@
       <section class="rule-actions">
         <article><strong>Contribute</strong><p>Place a tile. Its current potency locks. Every other tile in your hand decays by 1.</p></article>
         <article><strong>Extract</strong><p>Decay your active hand by 1, then place a fresh potency-4 tile from your pool into an empty live slot.</p></article>
-        <article><strong>Observe</strong><p>Decay every active tile in your hand by 2.</p></article>
+        <article><strong>Forfeit</strong><p>Concede the round. If Contribute and Extract are both unavailable, Forfeit is your only base action.</p></article>
       </section>
       <section>
         <h3>Collapse</h3>
-        <p>A tile that reaches 0 is lost and collapses its slot permanently. If all three of your slots collapse, you lose the round.</p>
+        <p>A tile that reaches 0 is lost and collapses its slot. A collapsed hand does not end the round automatically. The affected player must Forfeit unless a discovered skill gives them another legal action.</p>
+      </section>
+      <section>
+        <h3>Named Formulas</h3>
+        <p>Only a fully fulfilled board can receive a Formula name. Open Formulas may still be claimed, but they are unfulfilled and cannot be cataloged or named.</p>
+      </section>
+      <section>
+        <h3>Shared discoveries</h3>
+        <p>The game winner may spend banked points on one skill between games. Every purchased skill changes the rules for both players for the rest of the session.</p>
       </section>
     </div>
     <button class="primary-button dialog-done" type="button" data-close-dialog>Close</button>
   </dialog>
 
   <dialog id="resultDialog" class="modal-dialog result-dialog">
-    <p id="resultEyebrow" class="eyebrow">Formula complete</p>
+    <p id="resultEyebrow" class="eyebrow">Formula claimed</p>
     <div id="resultSigil" class="result-sigil">F</div>
     <h2 id="resultTitle">Calcination</h2>
     <p id="resultDescription"></p>
     <div id="resultStats" class="result-stats"></div>
-    <button id="resultContinueButton" class="primary-button" type="button">Begin the next round</button>
+    <div class="result-scoreboard" aria-label="Current score">
+      <article>
+        <span id="blackResultName">Black</span>
+        <strong><b id="blackResultRounds">0</b> rounds</strong>
+        <small><b id="blackResultPoints">0</b> Formula points · <b id="blackResultBank">0</b> banked · <b id="blackResultGames">0</b> games · <b id="blackResultMatches">0</b> matches</small>
+      </article>
+      <article>
+        <span id="whiteResultName">White</span>
+        <strong><b id="whiteResultRounds">0</b> rounds</strong>
+        <small><b id="whiteResultPoints">0</b> Formula points · <b id="whiteResultBank">0</b> banked · <b id="whiteResultGames">0</b> games · <b id="whiteResultMatches">0</b> matches</small>
+      </article>
+    </div>
+    <form id="formulaNameForm" class="formula-name-form" hidden>
+      <label for="formulaNameInput">Name this Formula</label>
+      <div>
+        <input id="formulaNameInput" type="text" maxlength="40" autocomplete="off" placeholder="Formula name">
+        <button class="quiet-button" type="submit">Save name</button>
+      </div>
+      <small id="formulaNameStatus"></small>
+    </form>
+    <div class="result-actions">
+      <button id="observeFormulaButton" class="quiet-button" type="button">Observe Formula</button>
+      <button id="endSessionButton" class="quiet-button" type="button" hidden>End session</button>
+      <button id="resultContinueButton" class="primary-button" type="button">Begin the next round</button>
+    </div>
+  </dialog>
+
+  <dialog id="skillTreeDialog" class="modal-dialog skill-tree-dialog">
+    <div class="dialog-heading">
+      <div>
+        <p class="eyebrow">Shared session rules</p>
+        <h2>Skill Tree</h2>
+        <p id="skillTreeStatus" class="dialog-subcopy"></p>
+      </div>
+      <button id="closeSkillTreeButton" class="dialog-close icon-button" type="button" aria-label="Close skill tree">×</button>
+    </div>
+    <div id="skillTreeColumns" class="skill-tree-columns"></div>
+    <div class="skill-tree-footer">
+      <button id="skipSkillPurchaseButton" class="quiet-button" type="button" hidden>Retain points</button>
+      <button id="finishSkillTreeButton" class="primary-button" type="button">Close</button>
+    </div>
+  </dialog>
+
+  <dialog id="choiceDialog" class="modal-dialog choice-dialog">
+    <p id="choiceEyebrow" class="eyebrow">Choose</p>
+    <h2 id="choiceTitle">Choose an option</h2>
+    <p id="choiceDescription" class="dialog-subcopy"></p>
+    <div id="choiceButtons" class="choice-buttons"></div>
+    <button id="cancelChoiceButton" class="quiet-button" type="button">Cancel</button>
   </dialog>
 
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
   <script src="engine.js"></script>
+  <script src="skilltree.js"></script>
+  <script src="progression.js"></script>
   <script src="turns.js"></script>
   <script src="tiles.js"></script>
   <script src="board-view.js"></script>
